@@ -2,9 +2,9 @@
 resolver = "2"
 members = [
   "easy-shader-runner",
-  "example",
-  "example/builder",
-  "example/shader/shader",
+  "mandelbrot",
+  "mandelbrot/builder",
+  "mandelbrot/shader/shader",
 ]
 
 [workspace.package]

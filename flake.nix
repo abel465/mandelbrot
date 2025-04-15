@@ -1,5 +1,5 @@
 {
-  description = "template";
+  description = "mandelbrot";
 
   inputs = {
     fenix.url = "github:nix-community/fenix/3b89d5df39afc6ef3a8575fa92d8fa10ec68c95f";
@@ -53,7 +53,7 @@
         ];
         shadersCompilePath = "$HOME/.cache/rust-gpu-shaders";
         rustPackage = rustPlatform.buildRustPackage {
-          pname = "example";
+          pname = "mandelbrot";
           version = "0.0.0";
           src = ./.;
           cargoLock.lockFile = ./Cargo.lock;
@@ -75,20 +75,20 @@
           '';
           fixupPhase = ''
             cp -r . $out/repo
-            wrapProgram $out/bin/example \
+            wrapProgram $out/bin/mandelbrot \
               --set LD_LIBRARY_PATH $LD_LIBRARY_PATH:$out/lib:${nixpkgs.lib.makeLibraryPath buildInputs} \
               --set PATH $PATH:${nixpkgs.lib.makeBinPath [rustPkg]} \
-              --set CARGO_MANIFEST_DIR $out/repo/example
+              --set CARGO_MANIFEST_DIR $out/repo/mandelbrot
           '';
         };
       in rec {
-        packages.default = pkgs.writeShellScriptBin "example" ''
+        packages.default = pkgs.writeShellScriptBin "mandelbrot" ''
           export CARGO_TARGET_DIR="${shadersCompilePath}"
-          exec -a "$0" "${rustPackage}/bin/example" "$@"
+          exec -a "$0" "${rustPackage}/bin/mandelbrot" "$@"
         '';
         apps.default = {
           type = "app";
-          program = "${packages.default}/bin/example";
+          program = "${packages.default}/bin/mandelbrot";
         };
         devShells.default = with pkgs;
           mkShell {

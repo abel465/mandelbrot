@@ -666,20 +666,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a5d9305ccc6942a704f4335694ecd3de2ea531b114ac2d51f5f843750787a92f"
 
 [[package]]
-name = "example"
-version = "0.0.0"
-dependencies = [
- "bytemuck",
- "cfg-if",
- "easy-shader-runner",
- "glam",
- "shared",
- "structopt",
- "wasm-bindgen-futures",
- "web-time",
-]
-
-[[package]]
 name = "fallible-iterator"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1383,6 +1369,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "62bb907fe88d54d8d9ce32a3cceab4218ed2f6b7d35617cafe9adf84e43919cb"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "mandelbrot"
+version = "0.0.0"
+dependencies = [
+ "bytemuck",
+ "cfg-if",
+ "easy-shader-runner",
+ "glam",
+ "shared",
+ "structopt",
+ "wasm-bindgen-futures",
+ "web-time",
 ]
 
 [[package]]
