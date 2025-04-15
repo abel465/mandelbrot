@@ -1,0 +1,22 @@
+[package]
+name = "shader"
+version = "0.0.0"
+publish = false
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["dylib"]
+
+[features]
+emulate_constants = []
+
+[dependencies]
+spirv-std = { workspace = true }
+shared = { path = "../shared" }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = [
+  'cfg(target_arch, values("spirv"))',
+] }

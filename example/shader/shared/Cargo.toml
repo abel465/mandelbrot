@@ -1,0 +1,17 @@
+[package]
+name = "shared"
+version = "0.0.0"
+publish = false
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+spirv-std = { workspace = true }
+bytemuck = { workspace = true, features = ["derive"] }
+glam = { workspace = true, features = ["bytemuck"] }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = [
+  'cfg(target_arch, values("spirv"))',
+] }

@@ -1,0 +1,33 @@
+[package]
+name = "example"
+version = "0.0.0"
+publish = false
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+default-run = "example"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["hot-reload-shader"]
+runtime-compilation = ["easy-shader-runner/runtime-compilation"]
+hot-reload-shader = ["easy-shader-runner/hot-reload-shader"]
+
+[dependencies]
+cfg-if = "1.0.0"
+shared = { path = "shader/shared" }
+structopt = { version = "0.3.26", default-features = false }
+bytemuck = { workspace = true }
+glam = { workspace = true }
+web-time = "1.1.0"
+
+[target.'cfg(not(any(target_arch = "wasm32")))'.dependencies]
+easy-shader-runner = { path = "../easy-shader-runner", default-features = false }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-futures = "0.4.50"
+easy-shader-runner = { path = "../easy-shader-runner", default-features = false, features = [
+  "emulate_constants",
+] }

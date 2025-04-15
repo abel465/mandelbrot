@@ -1,0 +1,17 @@
+{
+  "name": "template",
+  "version": "0.1.0",
+  "description": "run app in the browser",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "preview": "vite preview",
+    "build": "vite build"
+  },
+  "devDependencies": {
+    "runner": "file:pkg",
+    "vite": "^6.2.2",
+    "vite-plugin-wasm": "^3.4.1"
+  }
+}

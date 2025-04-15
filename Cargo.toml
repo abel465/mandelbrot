@@ -1,0 +1,30 @@
+[workspace]
+resolver = "2"
+members = [
+  "easy-shader-runner",
+  "example",
+  "example/builder",
+  "example/shader/shader",
+]
+
+[workspace.package]
+version = "0.1.0"
+authors = ["Abel <abel465@gmail.com>"]
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/abel465/easy-shader-runner"
+
+[workspace.dependencies]
+bytemuck = { version = "1.22.0", default-features = false }
+glam = { version = "0.29.3", default-features = false }
+
+[workspace.dependencies.spirv-std]
+git = "https://github.com/Rust-GPU/rust-gpu"
+rev = "175c175cd8a25722f284010fd9c7b70725449956"
+
+[workspace.dependencies.spirv-builder]
+git = "https://github.com/Rust-GPU/rust-gpu"
+rev = "175c175cd8a25722f284010fd9c7b70725449956"
+
+[profile.dev]
+package.spirv-tools-sys.opt-level = 1
