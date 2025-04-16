@@ -1,10 +1,25 @@
 #![no_std]
 
+use complex::Complex;
 use grid::GridRefMut;
 use push_constants::shader::*;
 use shared::*;
 use spirv_std::glam::*;
+use spirv_std::num_traits::Float;
 use spirv_std::spirv;
+
+mod complex;
+
+pub fn lerp(x: f32, y: f32, a: f32) -> f32 {
+    x * (1.0 - a) + y * a
+}
+
+pub fn smoothstep(edge0: f32, edge1: f32, x: f32) -> f32 {
+    // Scale, bias and saturate x to 0..1 range
+    let x = ((x - edge0) / (edge1 - edge0)).clamp(0.0, 1.0);
+    // Evaluate polynomial
+    x * x * (3.0 - 2.0 * x)
+}
 
 #[spirv(fragment)]
 pub fn main_fs(
@@ -15,90 +30,111 @@ pub fn main_fs(
     #[cfg(feature = "emulate_constants")]
     #[spirv(storage_buffer, descriptor_set = 1, binding = 0)]
     constants: &FragmentConstants,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] cell_grid: &mut [CellState],
     output: &mut Vec4,
 ) {
-    let mut cell_grid = GridRefMut::new(DIM, cell_grid);
     let coord = frag_coord.xy() - constants.translate;
-    let i = ((coord / constants.size.as_vec2() / constants.camera_zoom
+    // let coord = vec2(coord.x, -coord.y);
+    let size = constants.size.as_vec2();
+    // let size = vec2(size.x, -size.y);
+    let uv: Complex = (1.0 / constants.camera_zoom * (coord - 0.5 * size) / size.y
         + constants.camera_translate)
-        * DIM.as_vec2())
-    .as_uvec2();
+        .into();
 
-    if constants.mouse_button_pressed & 1 == 1 {
-        if constants.cursor.distance_squared(coord) < 0.5 {
-            cell_grid.set(i, CellState::On);
-        }
-    }
+    let col = if constants.style = 
 
-    let col = match cell_grid.get(i) {
-        CellState::Off => Vec3::ZERO,
-        CellState::On => Vec3::X,
-        CellState::Dying => vec3(0.3, 0.05, 0.0),
-        CellState::Spawning => vec3(0.35, 0.0, 0.0),
+        RenderStyle::Yellow 
+    {
+        style_yellow(uv, constants)
+    } else {
+        style_red(uv,constants)
+
     };
-    *output = col.extend(1.0);
+    *output = col.extend(1.0)
+
 }
+fn style_yellow(uv: Complex, constants: &FragmentConstants) -> Vec3 {
+    let fnum_iters = constants.num_iterations; // + ((constants.time * 10.0).sin() + 1.0) / 2.0 * 0.2;
+    let num_iters = fnum_iters as u32;
+    let num_iter_fract = fnum_iters.fract();
 
-#[spirv(vertex)]
-pub fn main_vs(
-    #[spirv(vertex_index)] vert_id: i32,
-    #[spirv(position, invariant)] out_pos: &mut Vec4,
-) {
-    let uv = vec2(((vert_id << 1) & 2) as f32, (vert_id & 2) as f32);
-    let pos = 2.0 * uv - Vec2::ONE;
-    *out_pos = pos.extend(0.0).extend(1.0);
-}
-
-#[spirv(compute(threads(16, 16)))]
-pub fn main_cs(
-    #[spirv(global_invocation_id)] gid: UVec3,
-    #[cfg(not(feature = "emulate_constants"))]
-    #[spirv(push_constant)]
-    constants: &ComputeConstants,
-    #[cfg(feature = "emulate_constants")]
-    #[spirv(storage_buffer, descriptor_set = 2, binding = 0)]
-    constants: &ComputeConstants,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] cell_grid: &mut [CellState],
-) {
-    let mut cell_grid = GridRefMut::new(DIM, cell_grid);
-    let index = gid.xy();
-    let val = cell_grid.get(index);
-
-    if constants.transition.into() {
-        cell_grid.set(
-            index,
-            match val {
-                CellState::Dying => CellState::Off,
-                CellState::Spawning => CellState::On,
-                CellState::Off => CellState::Off,
-                CellState::On => CellState::On,
-            },
-        );
-        return;
-    }
-
-    let mut count = 0;
-    for i in -1..=1 {
-        for j in -1..=1 {
-            let ij = ivec2(i, j);
-            if ij == IVec2::ZERO {
-                continue;
-            }
-            let index = (index.as_ivec2() + ij)
-                .rem_euclid(DIM.as_ivec2())
-                .as_uvec2();
-
-            let val = cell_grid.get(index);
-            if matches!(val, CellState::On | CellState::Dying) {
-                count += 1
-            }
+    let mut z = Complex::ZERO;
+    let mut i = 0;
+    let mut norm_squared = 0.0;
+    while i < num_iters {
+        z = z * z + uv;
+        i += 1;
+        norm_squared = z.norm_squared();
+        if norm_squared >= 4.0 {
+            break;
         }
     }
 
-    if matches!(val, CellState::On) && (count < 2 || count > 3) {
-        cell_grid.set(index, CellState::Dying);
-    } else if matches!(val, CellState::Off) && count == 3 {
-        cell_grid.set(index, CellState::Spawning);
+    let x = norm_squared / 10.0;
+    let bob = ((x.sin() + 1.0) / 2.0).max(0.7);
+    let mut col = vec3(bob, 0.0, 0.0);
+    if i & 1 == 1 {
+        col.y = bob;
+    }
+    let mut output = Vec4::ZERO; 
+    output = col.extend(1.0);
+    if i == num_iters {
+        if norm_squared >= 4.0 {
+            let mut x = (norm_squared - 4.0) * num_iter_fract;
+            if x < 0.33 {
+                x = 0.0;
+            }
+
+            let mut col = vec3(x, 0.0, 0.0);
+            if i & 1 == 1 {
+                col.y = x;
+            }
+            output = col.extend(1.0);
+        } else {
+            output = vec3(0.0, 0.0, 0.0).extend(1.0);
+        }
+    }
+    if i < 2 {
+        let x = norm_squared / 50.0;
+        let bob = ((x.sin() + 1.0) / 2.0).max(0.7);
+        let mut col = vec3(bob, 0.0, 0.0);
+        if i & 1 == 1 {
+            col.y = bob;
+        }
+        output = col.extend(1.0);
+    }
+    if x.clamp(0.0, 10.0) < 0.45 && i < num_iters {
+        output = vec3(1.0, 0.7, 0.0).extend(1.0);
+    }
+    vec3(output.x, output.y, output.z)
+
+}
+
+fn style_red(uv: Complex, constants: &FragmentConstants) -> Vec3 {
+    let fnum_iters = constants.num_iterations;
+    let num_iters = fnum_iters as u32;
+
+    let mut z = Complex::ZERO;
+    let mut i = 0;
+    let mut norm_squared = 0.0;
+    while i < num_iters {
+        z = z * z + uv;
+        i += 1;
+        norm_squared = z.norm_squared();
+        if norm_squared >= 4.0 {
+            break;
+        }
+    }
+    let gg = norm_squared.sqrt() - 2.0;
+    let g = smoothstep(1.0, 0.0, gg) * 0.03;
+    let o = i as f32;
+
+    let mut col = Vec3::ZERO;
+    col.x += o / fnum_iters;
+    col.x += g;
+
+    if i == num_iters {
+        Vec3::ZERO
+    } else {
+        col
     }
 }

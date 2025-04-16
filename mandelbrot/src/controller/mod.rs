@@ -39,6 +39,8 @@ pub struct Controller {
     cell_grid: grid::Grid<CellState>,
     transition: bool,
     simulation_runner: SimulationRunner,
+    num_iterations: f32,
+    style: RenderStyle,
 }
 
 impl Controller {
@@ -74,6 +76,8 @@ impl Controller {
             cell_grid,
             transition: false,
             simulation_runner: SimulationRunner::new(now, options.debug),
+            num_iterations: 50.0,
+            style: RenderStyle::default(),
         }
     }
 }
@@ -84,18 +88,32 @@ impl ControllerTrait for Controller {
     }
 
     fn mouse_move(&mut self, position: Vec2) {
+        self.prev_cursor = self.cursor;
         self.cursor = position;
+        if self.mouse_button_pressed & 1 == 1 {
+            // is dragging
+            self.camera.translate +=
+                (self.prev_cursor - self.cursor) / self.size.y as f32 / self.camera.zoom;
+            self.camera.translate = self
+                .camera
+                .translate
+                .clamp(vec2(-2.0, -2.0), vec2(1.0, 2.0));
+        }
     }
 
     fn mouse_scroll(&mut self, delta: Vec2) {
+        let val = delta.y * 0.1;
         let prev_zoom = self.camera.zoom;
-        self.camera.zoom = (prev_zoom * (1.0 + delta.y * 0.1)).clamp(1.0, 100.0);
-        let dif = 1.0 / prev_zoom - 1.0 / self.camera.zoom;
-        self.camera.translate += dif * self.cursor / self.size.as_vec2();
+        let mouse_pos0 =
+            ((self.cursor - self.size.as_vec2() / 2.0) / self.size.y as f32) / self.camera.zoom;
+        self.camera.zoom = (prev_zoom * (1.0 + val)).clamp(0.1, 10000.0);
+        let mouse_pos1 =
+            ((self.cursor - self.size.as_vec2() / 2.0) / self.size.y as f32) / self.camera.zoom;
+        self.camera.translate += mouse_pos0 - mouse_pos1;
         self.camera.translate = self
             .camera
             .translate
-            .clamp(Vec2::ZERO, Vec2::splat(1.0 - 1.0 / self.camera.zoom));
+            .clamp(vec2(-2.0, -2.0), vec2(1.0, 2.0));
     }
 
     fn mouse_input(&mut self, state: ElementState, button: MouseButton) {
@@ -132,39 +150,42 @@ impl ControllerTrait for Controller {
     }
 
     fn prepare_render(&mut self, offset: Vec2) -> impl bytemuck::NoUninit {
+        self.num_iterations = (self.camera.zoom * 10000000000000.0).log2() * 5.0 - 190.0;
         let fragment_constants = FragmentConstants {
             size: self.size.into(),
             translate: offset,
             time: self.start.elapsed().as_secs_f32(),
-            mouse_button_pressed: self.mouse_button_pressed,
+            // mouse_button_pressed: self.mouse_button_pressed,
             cursor: self.cursor,
             prev_cursor: self.prev_cursor,
             camera_translate: self.camera.translate,
             camera_zoom: self.camera.zoom,
-            debug: self.debug.into(),
+            // debug: self.debug.into(),
+            num_iterations: self.num_iterations,
+            style: self.style,
+            padding: Default::default(),
         };
-        self.prev_cursor = self.cursor;
         fragment_constants
     }
 
-    fn update<F: Fn(UVec2, &[u8])>(&mut self, compute: F, allowed_duration: f32) {
-        let start = web_time::Instant::now();
-        for _ in 0..self.simulation_runner.iterations() {
-            compute(
-                shared::DIM,
-                bytemuck::bytes_of(&ComputeConstants {
-                    size: self.size.into(),
-                    time: self.start.elapsed().as_secs_f32(),
-                    zoom: self.camera.zoom,
-                    transition: self.transition.into(),
-                }),
-            );
-            self.transition = !self.transition;
-            if start.elapsed().as_secs_f32() > allowed_duration {
-                break;
-            }
-        }
-    }
+    // fn update<F: Fn(UVec2, &[u8])>(&mut self, compute: F, allowed_duration: f32) {
+    //     let start = web_time::Instant::now();
+    //     for _ in 0..self.simulation_runner.iterations() {
+    //         compute(
+    //             shared::DIM,
+    //             bytemuck::bytes_of(&ComputeConstants {
+    //                 size: self.size.into(),
+    //                 time: self.start.elapsed().as_secs_f32(),
+    //                 zoom: self.camera.zoom,
+    //                 transition: self.transition.into(),
+    //             }),
+    //         );
+    //         self.transition = !self.transition;
+    //         if start.elapsed().as_secs_f32() > allowed_duration {
+    //             break;
+    //         }
+    //     }
+    // }
 
     fn buffers(&self) -> Vec<BufferDescriptor> {
         vec![BufferDescriptor {
@@ -178,26 +199,26 @@ impl ControllerTrait for Controller {
         egui::Window::new("Options")
             .resizable(false)
             .show(ctx, |ui| {
-                ui.add(egui::Label::new(" Simulation Speed").selectable(false));
-                ui.add(
-                    egui::Slider::new(&mut self.simulation_runner.speed, 0.01..=99.0)
-                        .logarithmic(true)
-                        .max_decimals(2),
-                );
-                ui.checkbox(&mut self.simulation_runner.paused, "Paused");
+                // ui.add(egui::Label::new(" Num Iterations").selectable(false));
+                // ui.add(egui::Slider::new(&mut self.num_iterations, 0..=99));
+                // ui.checkbox(&mut self.simulation_runner.paused, "Paused");
                 ui.checkbox(&mut self.debug, "Debug");
                 if self.debug {
                     egui::Grid::new("debug_grid").show(ui, |ui| {
-                        ui.label("Elapsed");
-                        ui.label(format!("{:.1}s", self.start.elapsed().as_secs_f64()));
-                        ui.end_row();
+                        // ui.label("Elapsed");
+                        // ui.label(format!("{:.1}s", self.start.elapsed().as_secs_f64()));
+                        // ui.end_row();
 
                         ui.label("Zoom");
                         ui.label(format!("{:.1}x", self.camera.zoom));
                         ui.end_row();
 
-                        ui.label("Translate");
-                        ui.label(format!("{:.2}", self.camera.translate));
+                        ui.label("Position");
+                        ui.label(format!("{:+.6}", self.camera.translate.x));
+                        ui.end_row();
+
+                        ui.label("Iterations");
+                        ui.label(format!("{:.5}", self.num_iterations));
                         ui.end_row();
                     });
                 }
