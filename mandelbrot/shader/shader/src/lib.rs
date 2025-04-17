@@ -4,6 +4,7 @@ use complex::Complex;
 use push_constants::shader::*;
 use shared::*;
 use spirv_std::glam::*;
+#[cfg(target_arch = "spirv")]
 use spirv_std::num_traits::Float;
 use spirv_std::spirv;
 
@@ -27,7 +28,7 @@ pub fn main_fs(
     #[spirv(push_constant)]
     constants: &FragmentConstants,
     #[cfg(feature = "emulate_constants")]
-    #[spirv(storage_buffer, descriptor_set = 1, binding = 0)]
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)]
     constants: &FragmentConstants,
     output: &mut Vec4,
 ) {
