@@ -1,7 +1,6 @@
 #![no_std]
 
 use complex::Complex;
-use grid::GridRefMut;
 use push_constants::shader::*;
 use shared::*;
 use spirv_std::glam::*;
@@ -32,109 +31,95 @@ pub fn main_fs(
     constants: &FragmentConstants,
     output: &mut Vec4,
 ) {
-    let coord = frag_coord.xy() - constants.translate;
-    // let coord = vec2(coord.x, -coord.y);
     let size = constants.size.as_vec2();
-    // let size = vec2(size.x, -size.y);
-    let uv: Complex = (1.0 / constants.camera_zoom * (coord - 0.5 * size) / size.y
+    let uv: Complex = (1.0 / constants.camera_zoom * (frag_coord.xy() - 0.5 * size) / size.y
         + constants.camera_translate)
         .into();
 
-    let col = if constants.style = 
-
-        RenderStyle::Yellow 
-    {
-        style_yellow(uv, constants)
-    } else {
-        style_red(uv,constants)
-
+    let col = match constants.style {
+        RenderStyle::RedGlow => style_red_glow(uv, constants),
+        RenderStyle::Circus => style_circus(uv, constants),
     };
     *output = col.extend(1.0)
-
 }
-fn style_yellow(uv: Complex, constants: &FragmentConstants) -> Vec3 {
-    let fnum_iters = constants.num_iterations; // + ((constants.time * 10.0).sin() + 1.0) / 2.0 * 0.2;
+
+fn style_circus(uv: Complex, constants: &FragmentConstants) -> Vec3 {
+    let fnum_iters = constants.num_iterations;
     let num_iters = fnum_iters as u32;
     let num_iter_fract = fnum_iters.fract();
 
     let mut z = Complex::ZERO;
     let mut i = 0;
-    let mut norm_squared = 0.0;
-    while i < num_iters {
+
+    let col = loop {
         z = z * z + uv;
         i += 1;
-        norm_squared = z.norm_squared();
-        if norm_squared >= 4.0 {
-            break;
-        }
-    }
 
-    let x = norm_squared / 10.0;
-    let bob = ((x.sin() + 1.0) / 2.0).max(0.7);
-    let mut col = vec3(bob, 0.0, 0.0);
-    if i & 1 == 1 {
-        col.y = bob;
-    }
-    let mut output = Vec4::ZERO; 
-    output = col.extend(1.0);
-    if i == num_iters {
+        let norm_squared = z.norm_squared();
         if norm_squared >= 4.0 {
-            let mut x = (norm_squared - 4.0) * num_iter_fract;
-            if x < 0.33 {
-                x = 0.0;
+            let col = if i & 1 == 1 {
+                Vec3::X + Vec3::Y
+            } else {
+                Vec3::X
+            };
+            let col = col * (10.0 / norm_squared).sin();
+
+            if i >= num_iters {
+                let show = ((norm_squared - 4.0) * num_iter_fract) > 0.3;
+                if !show {
+                    break Vec3::ZERO;
+                }
             }
 
-            let mut col = vec3(x, 0.0, 0.0);
-            if i & 1 == 1 {
-                col.y = x;
-            }
-            output = col.extend(1.0);
-        } else {
-            output = vec3(0.0, 0.0, 0.0).extend(1.0);
+            break col;
         }
-    }
-    if i < 2 {
-        let x = norm_squared / 50.0;
-        let bob = ((x.sin() + 1.0) / 2.0).max(0.7);
-        let mut col = vec3(bob, 0.0, 0.0);
-        if i & 1 == 1 {
-            col.y = bob;
-        }
-        output = col.extend(1.0);
-    }
-    if x.clamp(0.0, 10.0) < 0.45 && i < num_iters {
-        output = vec3(1.0, 0.7, 0.0).extend(1.0);
-    }
-    vec3(output.x, output.y, output.z)
 
+        if i >= num_iters {
+            return Vec3::ZERO;
+        }
+    };
+
+    col
 }
 
-fn style_red(uv: Complex, constants: &FragmentConstants) -> Vec3 {
+fn style_red_glow(uv: Complex, constants: &FragmentConstants) -> Vec3 {
     let fnum_iters = constants.num_iterations;
     let num_iters = fnum_iters as u32;
+    let num_iter_fract = fnum_iters.fract();
 
     let mut z = Complex::ZERO;
     let mut i = 0;
-    let mut norm_squared = 0.0;
-    while i < num_iters {
+    loop {
         z = z * z + uv;
         i += 1;
-        norm_squared = z.norm_squared();
+
+        let norm_squared = z.norm_squared();
         if norm_squared >= 4.0 {
-            break;
+            let smoothing = 0.03 * smoothstep(1.0, 0.0, norm_squared.sqrt() - 2.0);
+            let red = i as f32 / num_iters as f32 + smoothing;
+
+            if i >= num_iters {
+                let show = ((norm_squared - 4.0) * num_iter_fract) > 0.3;
+                if !show {
+                    break Vec3::ZERO;
+                }
+            }
+
+            break red * Vec3::X;
+        }
+
+        if i >= num_iters {
+            break Vec3::ZERO;
         }
     }
-    let gg = norm_squared.sqrt() - 2.0;
-    let g = smoothstep(1.0, 0.0, gg) * 0.03;
-    let o = i as f32;
+}
 
-    let mut col = Vec3::ZERO;
-    col.x += o / fnum_iters;
-    col.x += g;
-
-    if i == num_iters {
-        Vec3::ZERO
-    } else {
-        col
-    }
+#[spirv(vertex)]
+pub fn main_vs(
+    #[spirv(vertex_index)] vert_id: i32,
+    #[spirv(position, invariant)] out_pos: &mut Vec4,
+) {
+    let uv = vec2(((vert_id << 1) & 2) as f32, (vert_id & 2) as f32);
+    let pos = 2.0 * uv - Vec2::ONE;
+    *out_pos = pos.extend(0.0).extend(1.0);
 }

@@ -5,14 +5,8 @@ use easy_shader_runner::{
 use glam::*;
 use shared::push_constants::shader::*;
 use shared::*;
-use simulation_runner::SimulationRunner;
 use web_time::Instant;
-use winit::{
-    event::{ElementState, KeyEvent, MouseButton},
-    keyboard::{Key, NamedKey},
-};
-
-mod simulation_runner;
+use winit::event::{ElementState, MouseButton};
 
 struct Camera {
     zoom: f32,
@@ -37,8 +31,6 @@ pub struct Controller {
     camera: Camera,
     debug: bool,
     cell_grid: grid::Grid<CellState>,
-    transition: bool,
-    simulation_runner: SimulationRunner,
     num_iterations: f32,
     style: RenderStyle,
 }
@@ -74,8 +66,6 @@ impl Controller {
             camera: Default::default(),
             debug: options.debug,
             cell_grid,
-            transition: false,
-            simulation_runner: SimulationRunner::new(now, options.debug),
             num_iterations: 50.0,
             style: RenderStyle::default(),
         }
@@ -132,60 +122,20 @@ impl ControllerTrait for Controller {
         }
     }
 
-    fn keyboard_input(&mut self, key: KeyEvent) {
-        if !key.state.is_pressed() {
-            return;
-        }
-        match key.logical_key {
-            Key::Character(c) => match c.chars().next().unwrap() {
-                'z' => {}
-                'x' => self.simulation_runner.add_iteration(),
-                _ => {}
-            },
-            Key::Named(NamedKey::Space) => {
-                self.simulation_runner.paused = !self.simulation_runner.paused;
-            }
-            _ => {}
-        }
-    }
-
-    fn prepare_render(&mut self, offset: Vec2) -> impl bytemuck::NoUninit {
+    fn prepare_render(&mut self, _offset: Vec2) -> impl bytemuck::NoUninit {
         self.num_iterations = (self.camera.zoom * 10000000000000.0).log2() * 5.0 - 190.0;
         let fragment_constants = FragmentConstants {
             size: self.size.into(),
-            translate: offset,
             time: self.start.elapsed().as_secs_f32(),
-            // mouse_button_pressed: self.mouse_button_pressed,
             cursor: self.cursor,
             prev_cursor: self.prev_cursor,
             camera_translate: self.camera.translate,
             camera_zoom: self.camera.zoom,
-            // debug: self.debug.into(),
             num_iterations: self.num_iterations,
             style: self.style,
-            padding: Default::default(),
         };
         fragment_constants
     }
-
-    // fn update<F: Fn(UVec2, &[u8])>(&mut self, compute: F, allowed_duration: f32) {
-    //     let start = web_time::Instant::now();
-    //     for _ in 0..self.simulation_runner.iterations() {
-    //         compute(
-    //             shared::DIM,
-    //             bytemuck::bytes_of(&ComputeConstants {
-    //                 size: self.size.into(),
-    //                 time: self.start.elapsed().as_secs_f32(),
-    //                 zoom: self.camera.zoom,
-    //                 transition: self.transition.into(),
-    //             }),
-    //         );
-    //         self.transition = !self.transition;
-    //         if start.elapsed().as_secs_f32() > allowed_duration {
-    //             break;
-    //         }
-    //     }
-    // }
 
     fn buffers(&self) -> Vec<BufferDescriptor> {
         vec![BufferDescriptor {
@@ -196,29 +146,32 @@ impl ControllerTrait for Controller {
     }
 
     fn ui<F: Fn(UserEvent)>(&mut self, ctx: &egui::Context, _ui_state: &UiState, _send_event: F) {
-        egui::Window::new("Options")
+        let width = if self.debug { 120.0 } else { 80.0 };
+        egui::Window::new("ui")
+            .min_width(width)
+            .max_width(width)
             .resizable(false)
             .show(ctx, |ui| {
-                // ui.add(egui::Label::new(" Num Iterations").selectable(false));
-                // ui.add(egui::Slider::new(&mut self.num_iterations, 0..=99));
-                // ui.checkbox(&mut self.simulation_runner.paused, "Paused");
+                ui.radio_value(&mut self.style, RenderStyle::RedGlow, "Red Glow");
+                ui.radio_value(&mut self.style, RenderStyle::Circus, "Circus");
+                ui.separator();
                 ui.checkbox(&mut self.debug, "Debug");
                 if self.debug {
                     egui::Grid::new("debug_grid").show(ui, |ui| {
-                        // ui.label("Elapsed");
-                        // ui.label(format!("{:.1}s", self.start.elapsed().as_secs_f64()));
-                        // ui.end_row();
-
                         ui.label("Zoom");
-                        ui.label(format!("{:.1}x", self.camera.zoom));
+                        ui.monospace(format!("{:.1}x", self.camera.zoom));
                         ui.end_row();
 
-                        ui.label("Position");
-                        ui.label(format!("{:+.6}", self.camera.translate.x));
+                        ui.label("X");
+                        ui.monospace(format!("{:+.6}", self.camera.translate.x));
+                        ui.end_row();
+
+                        ui.label("Y");
+                        ui.monospace(format!("{:+.6}", self.camera.translate.y));
                         ui.end_row();
 
                         ui.label("Iterations");
-                        ui.label(format!("{:.5}", self.num_iterations));
+                        ui.monospace(format!("{:.2}", self.num_iterations));
                         ui.end_row();
                     });
                 }
