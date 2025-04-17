@@ -16,6 +16,7 @@ pub trait ControllerTrait: 'static {
 
     fn prepare_render(&mut self, offset: Vec2) -> impl bytemuck::NoUninit;
 
+    #[cfg(feature = "compute")]
     fn update<F: Fn(UVec2, &[u8])>(&mut self, _compute: F, _allowed_duration: f32) {}
 
     fn buffers(&self) -> Vec<BufferDescriptor> {

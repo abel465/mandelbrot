@@ -101,6 +101,7 @@ impl<'a, C: ControllerTrait> App<C> {
         gfx.controller.mouse_scroll(delta);
     }
 
+    #[cfg(feature = "compute")]
     pub fn update(&mut self) {
         let Self::Graphics(gfx) = self else {
             return;
@@ -132,11 +133,6 @@ impl<'a, C: ControllerTrait> App<C> {
             &mut gfx.controller,
             &gfx.event_proxy,
         )
-    }
-
-    pub fn update_and_render(&mut self) -> Result<(), wgpu::SurfaceError> {
-        self.update();
-        self.render()
     }
 
     pub fn ui_consumes_event(&mut self, event: &WindowEvent) -> bool {
@@ -216,7 +212,9 @@ impl<C: ControllerTrait> ApplicationHandler<CustomEvent<C>> for App<C> {
         }
         match event {
             WindowEvent::RedrawRequested => {
-                if let Err(wgpu::SurfaceError::OutOfMemory) = self.update_and_render() {
+                #[cfg(feature = "compute")]
+                self.update();
+                if let Err(wgpu::SurfaceError::OutOfMemory) = self.render() {
                     event_loop.exit()
                 }
             }

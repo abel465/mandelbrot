@@ -18,6 +18,7 @@ default = ["hot-reload-shader"]
 runtime-compilation = ["dep:spirv-builder"]
 hot-reload-shader = ["spirv-builder/watch"]
 emulate_constants = []
+compute = []
 
 [dependencies]
 cfg-if = "1.0.0"

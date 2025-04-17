@@ -10,11 +10,13 @@ use wgpu::util::DeviceExt;
 
 struct Pipelines {
     render: wgpu::RenderPipeline,
+    #[cfg(feature = "compute")]
     compute: wgpu::ComputePipeline,
 }
 
 struct PipelineLayouts {
     render: wgpu::PipelineLayout,
+    #[cfg(feature = "compute")]
     compute: wgpu::PipelineLayout,
 }
 
@@ -61,6 +63,7 @@ impl RenderPass {
         }
     }
 
+    #[cfg(feature = "compute")]
     pub fn compute(&self, ctx: &GraphicsContext, dimensions: glam::UVec2, push_constants: &[u8]) {
         let workspace = {
             use glam::*;
@@ -309,6 +312,7 @@ fn create_pipeline_layouts(
                 range: 0..128,
             },
         ]),
+    #[cfg(feature = "compute")]
         compute: create(&[
             #[cfg(not(feature = "emulate_constants"))]
             wgpu::PushConstantRange {
@@ -367,6 +371,7 @@ fn create_pipelines(
         multiview: None,
         cache: None,
     });
+    #[cfg(feature = "compute")]
     let compute_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
         label: None,
         layout: Some(&pipeline_layouts.compute),
@@ -377,6 +382,7 @@ fn create_pipelines(
     });
     Pipelines {
         render: render_pipeline,
+    #[cfg(feature = "compute")]
         compute: compute_pipeline,
     }
 }
@@ -423,6 +429,7 @@ fn create_bind_group_layouts(
                     }],
                     label: Some("emulated fragment constants layout"),
                 }),
+    #[cfg(feature = "compute")]
             ctx.device
                 .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                     entries: &[wgpu::BindGroupLayoutEntry {
@@ -496,6 +503,7 @@ fn maybe_create_bind_groups(
                     buffer,
                 }
             },
+    #[cfg(feature = "compute")]
             {
                 let buffer = ctx
                     .device
