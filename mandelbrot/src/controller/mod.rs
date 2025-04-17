@@ -1,10 +1,7 @@
 use crate::Options;
-use easy_shader_runner::{
-    egui, wgpu, winit, BufferDescriptor, ControllerTrait, UiState, UserEvent,
-};
+use easy_shader_runner::{egui, winit, ControllerTrait, UiState, UserEvent};
 use glam::*;
 use shared::push_constants::shader::*;
-use shared::*;
 use web_time::Instant;
 use winit::event::{ElementState, MouseButton};
 
@@ -30,7 +27,6 @@ pub struct Controller {
     mouse_button_pressed: u32,
     camera: Camera,
     debug: bool,
-    cell_grid: grid::Grid<CellState>,
     num_iterations: f32,
     style: RenderStyle,
 }
@@ -38,24 +34,6 @@ pub struct Controller {
 impl Controller {
     pub fn new(options: &Options) -> Self {
         let now = Instant::now();
-
-        let mut cell_grid = grid::Grid::new(DIM);
-        {
-            let seed = [
-                // Initial configuration
-                [0, 1, 0],
-                [1, 1, 0],
-                [0, 1, 1],
-            ];
-            let p = DIM / 2;
-            for (i, row) in seed.into_iter().enumerate() {
-                for (j, val) in row.into_iter().enumerate() {
-                    if val != 0 {
-                        cell_grid.set(p + uvec2(i as u32, j as u32), CellState::On);
-                    }
-                }
-            }
-        }
 
         Self {
             size: UVec2::ZERO,
@@ -65,7 +43,6 @@ impl Controller {
             mouse_button_pressed: 0,
             camera: Default::default(),
             debug: options.debug,
-            cell_grid,
             num_iterations: 50.0,
             style: RenderStyle::default(),
         }
@@ -135,14 +112,6 @@ impl ControllerTrait for Controller {
             style: self.style,
         };
         fragment_constants
-    }
-
-    fn buffers(&self) -> Vec<BufferDescriptor> {
-        vec![BufferDescriptor {
-            data: bytemuck::cast_slice(&self.cell_grid.buffer),
-            read_only: false,
-            shader_stages: wgpu::ShaderStages::FRAGMENT | wgpu::ShaderStages::COMPUTE,
-        }]
     }
 
     fn ui<F: Fn(UserEvent)>(&mut self, ctx: &egui::Context, _ui_state: &UiState, _send_event: F) {
