@@ -98,6 +98,8 @@ impl<'a, C: ControllerTrait> App<C> {
             MouseScrollDelta::LineDelta(x, y) => glam::vec2(x, y),
             MouseScrollDelta::PixelDelta(p) => glam::vec2(p.x as f32, p.y as f32) * 0.02,
         };
+        #[cfg(target_arch = "wasm32")]
+        let delta = delta * 0.2777778;
         gfx.controller.mouse_scroll(delta);
     }
 

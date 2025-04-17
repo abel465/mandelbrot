@@ -185,11 +185,17 @@ impl RenderPass {
                 #[cfg(not(feature = "emulate_constants"))]
                 rpass.set_push_constants(wgpu::ShaderStages::FRAGMENT, 0, bytes);
                 #[cfg(feature = "emulate_constants")]
-                ctx.queue.write_buffer(
-                    &self.bind_group_data[self.bind_group_data.len() - 2].buffer,
-                    0,
-                    bytes,
-                );
+                {
+                    cfg_if::cfg_if! {
+                        if #[cfg(feature = "compute")] {
+                            let index = self.bind_group_data.len() - 2;
+                        } else {
+                            let index = self.bind_group_data.len() - 1;
+                        }
+                    };
+                    ctx.queue
+                        .write_buffer(&self.bind_group_data[index].buffer, 0, bytes);
+                }
             }
             for (i, bind_group_data) in self.bind_group_data.iter().enumerate() {
                 rpass.set_bind_group(i as u32, &bind_group_data.bind_group, &[]);
@@ -312,7 +318,7 @@ fn create_pipeline_layouts(
                 range: 0..128,
             },
         ]),
-    #[cfg(feature = "compute")]
+        #[cfg(feature = "compute")]
         compute: create(&[
             #[cfg(not(feature = "emulate_constants"))]
             wgpu::PushConstantRange {
@@ -382,7 +388,7 @@ fn create_pipelines(
     });
     Pipelines {
         render: render_pipeline,
-    #[cfg(feature = "compute")]
+        #[cfg(feature = "compute")]
         compute: compute_pipeline,
     }
 }
@@ -429,7 +435,7 @@ fn create_bind_group_layouts(
                     }],
                     label: Some("emulated fragment constants layout"),
                 }),
-    #[cfg(feature = "compute")]
+            #[cfg(feature = "compute")]
             ctx.device
                 .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                     entries: &[wgpu::BindGroupLayoutEntry {
@@ -484,6 +490,13 @@ fn maybe_create_bind_groups(
         let usage = wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST;
         bind_group_data.chain([
             {
+                cfg_if::cfg_if! {
+                    if #[cfg(feature = "compute")] {
+                        let index = bind_group_layouts.len() - 2;
+                    } else {
+                        let index = bind_group_layouts.len() - 1;
+                    }
+                };
                 let buffer = ctx
                     .device
                     .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -493,7 +506,7 @@ fn maybe_create_bind_groups(
                     });
                 BindGroupData {
                     bind_group: ctx.device.create_bind_group(&wgpu::BindGroupDescriptor {
-                        layout: &bind_group_layouts[bind_group_layouts.len() - 2],
+                        layout: &bind_group_layouts[index],
                         entries: &[wgpu::BindGroupEntry {
                             binding: 0,
                             resource: buffer.as_entire_binding(),
@@ -503,7 +516,7 @@ fn maybe_create_bind_groups(
                     buffer,
                 }
             },
-    #[cfg(feature = "compute")]
+            #[cfg(feature = "compute")]
             {
                 let buffer = ctx
                     .device
