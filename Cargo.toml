@@ -12,7 +12,7 @@ version = "0.1.0"
 authors = ["Abel <abel465@gmail.com>"]
 edition = "2021"
 license = "MIT"
-repository = "https://github.com/abel465/easy-shader-runner"
+repository = "https://github.com/abel465/mandelbrot"
 
 [workspace.dependencies]
 bytemuck = { version = "1.22.0", default-features = false }

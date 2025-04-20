@@ -33,18 +33,17 @@ pub fn main_fs(
     output: &mut Vec4,
 ) {
     let size = constants.size.as_vec2();
-    let uv: Complex = (1.0 / constants.camera_zoom * (frag_coord.xy() - 0.5 * size) / size.y
-        + constants.camera_translate)
-        .into();
+    let uv = (frag_coord.xy() - 0.5 * size) / size.y / constants.camera_zoom + constants.camera_translate;
+    let c = uv.into();
 
     let col = match constants.style {
-        RenderStyle::RedGlow => style_red_glow(uv, constants),
-        RenderStyle::Circus => style_circus(uv, constants),
+        RenderStyle::RedGlow => style_red_glow(c, constants),
+        RenderStyle::Circus => style_circus(c, constants),
     };
     *output = col.extend(1.0)
 }
 
-fn style_circus(uv: Complex, constants: &FragmentConstants) -> Vec3 {
+fn style_circus(c: Complex, constants: &FragmentConstants) -> Vec3 {
     let fnum_iters = constants.num_iterations;
     let num_iters = fnum_iters as u32;
     let num_iter_fract = fnum_iters.fract();
@@ -53,7 +52,7 @@ fn style_circus(uv: Complex, constants: &FragmentConstants) -> Vec3 {
     let mut i = 0;
 
     let col = loop {
-        z = z * z + uv;
+        z = z * z + c;
         i += 1;
 
         let norm_squared = z.norm_squared();
@@ -83,7 +82,7 @@ fn style_circus(uv: Complex, constants: &FragmentConstants) -> Vec3 {
     col
 }
 
-fn style_red_glow(uv: Complex, constants: &FragmentConstants) -> Vec3 {
+fn style_red_glow(c: Complex, constants: &FragmentConstants) -> Vec3 {
     let fnum_iters = constants.num_iterations;
     let num_iters = fnum_iters as u32;
     let num_iter_fract = fnum_iters.fract();
@@ -91,7 +90,7 @@ fn style_red_glow(uv: Complex, constants: &FragmentConstants) -> Vec3 {
     let mut z = Complex::ZERO;
     let mut i = 0;
     loop {
-        z = z * z + uv;
+        z = z * z + c;
         i += 1;
 
         let norm_squared = z.norm_squared();
