@@ -30,7 +30,7 @@ fn main() {
     // `spirv-builder` generates in a similar way from `$OUT_DIR` and `$PROFILE`,
     // otherwise repeated `cargo build`s will cause build script reruns and the
     // rebuilding of `rustc_codegen_spirv` (likely due to common proc macro deps).
-    let dir = dir.join("builder");
+    let dir = dir.join("../builder");
     let status = std::process::Command::new("cargo")
         .args(["run", "--release", "-p", "builder"])
         .arg("--target-dir")

@@ -1373,20 +1373,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mandelbrot"
-version = "0.0.0"
-dependencies = [
- "bytemuck",
- "cfg-if",
- "easy-shader-runner",
- "glam",
- "shared",
- "structopt",
- "wasm-bindgen-futures",
- "web-time",
-]
-
-[[package]]
 name = "matchers"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2100,6 +2086,20 @@ checksum = "69cf3a93856b6e5946537278df0d3075596371b1950ccff012f02b0f7eafec8d"
 dependencies = [
  "rustc-hash",
  "spirv",
+]
+
+[[package]]
+name = "runner"
+version = "0.0.0"
+dependencies = [
+ "bytemuck",
+ "cfg-if",
+ "easy-shader-runner",
+ "glam",
+ "shared",
+ "structopt",
+ "wasm-bindgen-futures",
+ "web-time",
 ]
 
 [[package]]

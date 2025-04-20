@@ -1,9 +1,9 @@
 [workspace]
 resolver = "2"
 members = [
-  "mandelbrot",
-  "mandelbrot/builder",
-  "mandelbrot/shader/shader",
+  "runner",
+  "builder",
+  "shader/shader",
 ]
 
 [workspace.package]

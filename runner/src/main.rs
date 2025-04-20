@@ -1,3 +1,3 @@
 fn main() {
-    mandelbrot::main();
+    runner::main();
 }

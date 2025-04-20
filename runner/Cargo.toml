@@ -1,11 +1,11 @@
 [package]
-name = "mandelbrot"
+name = "runner"
 version = "0.0.0"
 publish = false
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
-default-run = "mandelbrot"
+default-run = "runner"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -17,7 +17,7 @@ hot-reload-shader = ["easy-shader-runner/hot-reload-shader"]
 
 [dependencies]
 cfg-if = "1.0.0"
-shared = { path = "shader/shared" }
+shared = { path = "../shader/shared" }
 structopt = { version = "0.3.26", default-features = false }
 bytemuck = { workspace = true }
 glam = { workspace = true }
