@@ -1,5 +1,5 @@
 {
-  "name": "template",
+  "name": "wasm-app",
   "version": "0.1.0",
   "description": "run app in the browser",
   "type": "module",
