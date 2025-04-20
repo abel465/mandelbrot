@@ -14,7 +14,7 @@ impl Default for Camera {
     fn default() -> Self {
         Self {
             zoom: 1.0,
-            translate: Default::default(),
+            translate: vec2(-1.0, 1.0 / 6.0),
         }
     }
 }
