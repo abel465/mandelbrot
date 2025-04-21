@@ -9,7 +9,7 @@ nix run github:abel465/mandelbrot
 ## Set up development environment
 ```bash
 git clone https://github.com/abel465/mandelbrot.git
-cd easy-shader-runner/
+cd mandelbrot/
 nix develop
 ```
 
@@ -22,7 +22,7 @@ cargo run
 ### Wasm
 ```bash
 cd wasm-app
-wasm-pack build ../mandelbrot --out-dir ../../wasm-app/pkg --dev
 npm install
+wasm-pack build ../runner --out-dir ../wasm-app/pkg --dev
 npm run dev
 ```
