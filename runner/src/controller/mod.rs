@@ -142,6 +142,22 @@ impl ControllerTrait for Controller {
                         ui.label("Iterations");
                         ui.monospace(format!("{:.2}", self.num_iterations));
                         ui.end_row();
+
+                        {
+                            let size = self.size.as_vec2();
+                            let uv_cursor = self.camera.translate
+                                + (self.cursor - 0.5 * size) * vec2(size.x / size.y, 1.0)
+                                    / self.camera.zoom
+                                    / size;
+
+                            ui.label("cursor X");
+                            ui.monospace(format!("{:+.6}", uv_cursor.x));
+                            ui.end_row();
+
+                            ui.label("cursor Y");
+                            ui.monospace(format!("{:+.6}", uv_cursor.y));
+                            ui.end_row();
+                        }
                     });
                 }
             });

@@ -33,14 +33,15 @@ pub fn main_fs(
     output: &mut Vec4,
 ) {
     let size = constants.size.as_vec2();
-    let uv = (frag_coord.xy() - 0.5 * size) / size.y / constants.camera_zoom + constants.camera_translate;
+    let uv = (frag_coord.xy() - 0.5 * size) / size.y / constants.camera_zoom
+        + constants.camera_translate;
     let c = uv.into();
 
     let col = match constants.style {
         RenderStyle::RedGlow => style_red_glow(c, constants),
         RenderStyle::Circus => style_circus(c, constants),
     };
-    *output = col.extend(1.0)
+    *output = col.extend(1.0);
 }
 
 fn style_circus(c: Complex, constants: &FragmentConstants) -> Vec3 {
