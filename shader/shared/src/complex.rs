@@ -5,7 +5,7 @@ use spirv_std::glam::Vec2;
 use spirv_std::num_traits::Float;
 
 #[derive(Copy, Clone)]
-pub struct Complex(Vec2);
+pub struct Complex(pub Vec2);
 
 impl Complex {
     pub const fn new(x: f32, y: f32) -> Self {

@@ -1,14 +1,14 @@
 #![no_std]
 
-use complex::Complex;
 use push_constants::shader::*;
+use shared::complex::Complex;
 use shared::*;
 use spirv_std::glam::*;
 #[cfg(target_arch = "spirv")]
 use spirv_std::num_traits::Float;
 use spirv_std::spirv;
 
-mod complex;
+mod sdf;
 
 pub fn lerp(x: f32, y: f32, a: f32) -> f32 {
     x * (1.0 - a) + y * a
@@ -28,8 +28,9 @@ pub fn main_fs(
     #[spirv(push_constant)]
     constants: &FragmentConstants,
     #[cfg(feature = "emulate_constants")]
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)]
+    #[spirv(storage_buffer, descriptor_set = 1, binding = 0)]
     constants: &FragmentConstants,
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] iteration_points: &[Vec2],
     output: &mut Vec4,
 ) {
     let size = constants.size.as_vec2();
@@ -37,10 +38,35 @@ pub fn main_fs(
         + constants.camera_translate;
     let c = uv.into();
 
-    let col = match constants.style {
+    let mut col = match constants.style {
         RenderStyle::RedGlow => style_red_glow(c, constants),
         RenderStyle::Circus => style_circus(c, constants),
     };
+
+    if constants.show_iterations.into() {
+        let n = constants.num_points as usize;
+        let zoom = constants.camera_zoom;
+        let mut intensity = 0.0;
+        for i in 0..n - 1 {
+            let p0 = iteration_points[i];
+            let p1 = iteration_points[i + 1];
+            let d = sdf::line_segment(uv, p0, p1).abs();
+            intensity = intensity.max(smoothstep(0.005 / zoom, 0.0, d).abs());
+        }
+        col.y += intensity;
+
+        // Marker
+        {
+            let d = sdf::disk(uv - constants.iterations_marker, MARKER_RADIUS / zoom);
+            let intensity = smoothstep(0.004 / zoom, 0.0, d.abs());
+            if d < 0.0 {
+                col = Vec3::splat(intensity);
+            } else {
+                col += intensity;
+            }
+        }
+    }
+
     *output = col.extend(1.0);
 }
 
