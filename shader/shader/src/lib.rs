@@ -21,6 +21,14 @@ pub fn smoothstep(edge0: f32, edge1: f32, x: f32) -> f32 {
     x * x * (3.0 - 2.0 * x)
 }
 
+fn from_uv(constants: &FragmentConstants, p: Vec2) -> Vec2 {
+    let size = constants.size.as_vec2();
+    (p - constants.mandelbrot_camera_translate) / vec2(size.x / size.y, 1.0)
+        * constants.mandelbrot_camera_zoom
+        * size
+        + 0.5 * size
+}
+
 #[spirv(fragment)]
 pub fn main_fs(
     #[spirv(frag_coord)] frag_coord: Vec4,
@@ -34,31 +42,60 @@ pub fn main_fs(
     output: &mut Vec4,
 ) {
     let size = constants.size.as_vec2();
-    let uv = (frag_coord.xy() - 0.5 * size) / size.y / constants.camera_zoom
-        + constants.camera_translate;
-    let c = uv.into();
+    let is_split_vertical = size.x > size.y;
+    let n = if is_split_vertical { Vec2::X } else { Vec2::Y };
+    let render_julia_set = constants.render_julia_set.into();
+    let mandelbrot_zoom = constants.mandelbrot_camera_zoom;
+    let mandelbrot_uv = (frag_coord.xy() - 0.5 * size) / size.y / mandelbrot_zoom
+        + constants.mandelbrot_camera_translate;
+    let is_julia =
+        render_julia_set && frag_coord.xy().dot(n) > size.dot(n) * constants.render_split;
 
+    let (z0, c): (Complex, Complex) = if is_julia {
+        (
+            ((frag_coord.xy() - 0.5 * size) / size.y / constants.julia_camera_zoom
+                + constants.julia_camera_translate)
+                .into(),
+            constants.marker.into(),
+        )
+    } else {
+        (Complex::ZERO, mandelbrot_uv.into())
+    };
+    let num_iters = constants.num_iterations;
     let mut col = match constants.style {
-        RenderStyle::RedGlow => style_red_glow(c, constants),
-        RenderStyle::Circus => style_circus(c, constants),
+        RenderStyle::RedGlow => style_red_glow(z0, c, num_iters),
+        RenderStyle::Circus => style_circus(z0, c, num_iters),
     };
 
-    if constants.show_iterations.into() {
-        let n = constants.num_points as usize;
-        let zoom = constants.camera_zoom;
-        let mut intensity = 0.0;
-        for i in 0..n - 1 {
-            let p0 = iteration_points[i];
-            let p1 = iteration_points[i + 1];
-            let d = sdf::line_segment(uv, p0, p1).abs();
-            intensity = intensity.max(smoothstep(0.005 / zoom, 0.0, d).abs());
-        }
-        col.y += intensity;
+    // Slider
+    if render_julia_set {
+        let d = (frag_coord.xy() + 0.5 - size * constants.render_split * n)
+            .dot(n)
+            .abs();
+        let intensity = smoothstep(4.0, 0.0, d);
+        col += Vec3::ONE * intensity;
+    }
 
+    let show_iterations = constants.show_iterations.into();
+    if (show_iterations || render_julia_set) && !is_julia {
+        // Iteration line segments
+        if show_iterations {
+            let mut intensity: f32 = 0.0;
+            for i in 0..constants.num_points as usize - 1 {
+                let p0 = iteration_points[i];
+                let p1 = iteration_points[i + 1];
+                let d = sdf::line_segment(frag_coord.xy(), p0, p1).abs();
+                intensity = intensity.max(smoothstep(2.0, 0.0, d).abs());
+            }
+            col += intensity;
+        }
         // Marker
         {
-            let d = sdf::disk(uv - constants.iterations_marker, MARKER_RADIUS / zoom);
-            let intensity = smoothstep(0.004 / zoom, 0.0, d.abs());
+            let d = sdf::disk(
+                frag_coord.xy() - from_uv(&constants, constants.marker),
+                MARKER_RADIUS,
+            );
+            let intensity = smoothstep(3.0, 0.0, d.abs());
             if d < 0.0 {
                 col = Vec3::splat(intensity);
             } else {
@@ -70,12 +107,11 @@ pub fn main_fs(
     *output = col.extend(1.0);
 }
 
-fn style_circus(c: Complex, constants: &FragmentConstants) -> Vec3 {
-    let fnum_iters = constants.num_iterations;
-    let num_iters = fnum_iters as u32;
-    let num_iter_fract = fnum_iters.fract();
+fn style_circus(z0: Complex, c: Complex, num_iters: f32) -> Vec3 {
+    let num_iter_fract = num_iters.fract();
+    let num_iters = num_iters as u32;
 
-    let mut z = Complex::ZERO;
+    let mut z = z0;
     let mut i = 0;
 
     let col = loop {
@@ -109,12 +145,11 @@ fn style_circus(c: Complex, constants: &FragmentConstants) -> Vec3 {
     col
 }
 
-fn style_red_glow(c: Complex, constants: &FragmentConstants) -> Vec3 {
-    let fnum_iters = constants.num_iterations;
-    let num_iters = fnum_iters as u32;
-    let num_iter_fract = fnum_iters.fract();
+fn style_red_glow(z0: Complex, c: Complex, num_iters: f32) -> Vec3 {
+    let num_iter_fract = num_iters.fract();
+    let num_iters = num_iters as u32;
 
-    let mut z = Complex::ZERO;
+    let mut z = z0;
     let mut i = 0;
     loop {
         z = z * z + c;

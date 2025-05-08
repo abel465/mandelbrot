@@ -8,18 +8,38 @@ use winit::event::{ElementState, MouseButton};
 
 const MAX_ITER_POINTS: u32 = 100;
 
+struct Cameras {
+    mandelbrot: Camera,
+    julia: Camera,
+}
+
+impl Cameras {
+    fn iter_mut(&mut self) -> [&mut Camera; 2] {
+        [&mut self.mandelbrot, &mut self.julia]
+    }
+}
+
+impl Default for Cameras {
+    fn default() -> Self {
+        Self {
+            julia: Camera {
+                zoom: 0.25,
+                translate: vec2(-1.3, 0.0),
+                grabbing: false,
+            },
+            mandelbrot: Camera {
+                zoom: 0.25,
+                translate: vec2(0.6, -0.3),
+                grabbing: false,
+            },
+        }
+    }
+}
+
 struct Camera {
     zoom: f32,
     translate: Vec2,
-}
-
-impl Default for Camera {
-    fn default() -> Self {
-        Self {
-            zoom: 1.0,
-            translate: vec2(-1.0, 1.0 / 6.0),
-        }
-    }
+    grabbing: bool,
 }
 
 #[derive(Default)]
@@ -32,43 +52,106 @@ struct Iterations {
     recompute: bool,
 }
 
+struct RenderSplit {
+    value: f32,
+    dragging: Option<egui::CursorIcon>,
+}
+
+impl Default for RenderSplit {
+    fn default() -> Self {
+        Self {
+            value: 0.5,
+            dragging: None,
+        }
+    }
+}
+
 pub struct Controller {
     size: UVec2,
     start: Instant,
     cursor: Vec2,
     prev_cursor: Vec2,
     mouse_button_pressed: u32,
-    camera: Camera,
+    cameras: Cameras,
     debug: bool,
     num_iterations: f32,
     style: RenderStyle,
     iterations: Iterations,
     context_menu: Option<Vec2>,
+    render_julia_set: bool,
+    render_split: RenderSplit,
 }
 
 impl Controller {
     pub fn new(options: &Options) -> Self {
-        let now = Instant::now();
-
         Self {
             size: UVec2::ZERO,
-            start: now,
+            start: Instant::now(),
             cursor: Vec2::ZERO,
             prev_cursor: Vec2::ZERO,
             mouse_button_pressed: 0,
-            camera: Default::default(),
+            cameras: Cameras::default(),
             debug: options.debug,
             num_iterations: 50.0,
             style: RenderStyle::default(),
-            iterations: Default::default(),
+            iterations: Iterations {
+                marker: vec2(-0.767294, -0.169140),
+                recompute: true,
+                ..Default::default()
+            },
             context_menu: None,
+            render_julia_set: true,
+            render_split: RenderSplit::default(),
         }
     }
 
     fn to_uv(&self, p: Vec2) -> Vec2 {
         let size = self.size.as_vec2();
-        self.camera.translate
-            + (p - 0.5 * size) * vec2(size.x / size.y, 1.0) / self.camera.zoom / size
+        self.cameras.mandelbrot.translate
+            + (p - 0.5 * size) * vec2(size.x / size.y, 1.0) / self.cameras.mandelbrot.zoom / size
+    }
+
+    fn from_uv(&self, p: Vec2) -> Vec2 {
+        let size = self.size.as_vec2();
+        (p - self.cameras.mandelbrot.translate) / vec2(size.x / size.y, 1.0)
+            * self.cameras.mandelbrot.zoom
+            * size
+            + 0.5 * size
+    }
+
+    fn can_grab_render_split(&self) -> Option<egui::CursorIcon> {
+        let (n, icon) = if self.size.x > self.size.y {
+            (Vec2::X, egui::CursorIcon::ResizeHorizontal)
+        } else {
+            (Vec2::Y, egui::CursorIcon::ResizeVertical)
+        };
+        (((self.cursor / self.size.as_vec2()).dot(n).abs() - self.render_split.value).abs() < 0.004)
+            .then_some(icon)
+    }
+
+    fn can_grab_marker(&self) -> bool {
+        if (!self.iterations.enabled && !self.render_julia_set) || self.is_cursor_in_julia() {
+            return false;
+        }
+        self.cursor
+            .distance_squared(self.from_uv(self.iterations.marker))
+            < MARKER_RADIUS * MARKER_RADIUS
+    }
+
+    fn is_cursor_in_julia(&self) -> bool {
+        let size = self.size.as_vec2();
+        let cursor = self.cursor;
+        let is_split_vertical = size.x > size.y;
+        let n = if is_split_vertical { Vec2::X } else { Vec2::Y };
+        cursor.dot(n) > size.dot(n) * self.render_split.value
+    }
+
+    fn camera(&mut self) -> &mut Camera {
+        if self.is_cursor_in_julia() {
+            &mut self.cameras.julia
+        } else {
+            &mut self.cameras.mandelbrot
+        }
     }
 }
 
@@ -83,31 +166,33 @@ impl ControllerTrait for Controller {
         if self.iterations.dragging {
             self.iterations.marker += self.to_uv(self.cursor) - self.to_uv(self.prev_cursor);
             self.iterations.recompute = true;
-        } else if self.mouse_button_pressed & 1 == 1 {
-            // is dragging
-            self.context_menu = None;
-            self.camera.translate +=
-                (self.prev_cursor - self.cursor) / self.size.y as f32 / self.camera.zoom;
-            self.camera.translate = self
-                .camera
-                .translate
-                .clamp(vec2(-2.0, -2.0), vec2(1.0, 2.0));
+        } else if self.render_split.dragging.is_some() {
+            let size = self.size.as_vec2();
+            let delta = (self.prev_cursor - self.cursor) / size;
+            let value = if size.x > size.y { delta.x } else { delta.y };
+            self.render_split.value -= value;
+        } else {
+            for camera in self.cameras.iter_mut() {
+                if camera.grabbing {
+                    self.context_menu = None;
+                    let delta = (self.prev_cursor - self.cursor) / self.size.y as f32;
+                    camera.translate += delta / camera.zoom;
+                }
+            }
         }
     }
 
     fn mouse_scroll(&mut self, delta: Vec2) {
+        let cursor = self.cursor;
+        let size = self.size.as_vec2();
+        let camera = self.camera();
         let val = delta.y * 0.1;
-        let prev_zoom = self.camera.zoom;
-        let mouse_pos0 =
-            ((self.cursor - self.size.as_vec2() / 2.0) / self.size.y as f32) / self.camera.zoom;
-        self.camera.zoom = (prev_zoom * (1.0 + val)).clamp(0.1, 10000.0);
-        let mouse_pos1 =
-            ((self.cursor - self.size.as_vec2() / 2.0) / self.size.y as f32) / self.camera.zoom;
-        self.camera.translate += mouse_pos0 - mouse_pos1;
-        self.camera.translate = self
-            .camera
-            .translate
-            .clamp(vec2(-2.0, -2.0), vec2(1.0, 2.0));
+        let prev_zoom = camera.zoom;
+        let mouse_pos0 = ((cursor - size / 2.0) / size.y) / camera.zoom;
+        camera.zoom = (prev_zoom * (1.0 + val)).clamp(0.05, 999999.9);
+        let mouse_pos1 = ((cursor - size / 2.0) / size.y) / camera.zoom;
+        camera.translate += mouse_pos0 - mouse_pos1;
+        self.iterations.recompute = true;
     }
 
     fn mouse_input(&mut self, state: ElementState, button: MouseButton) {
@@ -115,11 +200,16 @@ impl ControllerTrait for Controller {
             << match button {
                 MouseButton::Left => {
                     if matches!(state, ElementState::Pressed) {
-                        self.iterations.dragging =
-                            self.to_uv(self.cursor).distance(self.iterations.marker)
-                                < MARKER_RADIUS / self.camera.zoom;
+                        self.iterations.dragging = self.can_grab_marker();
+                        self.render_split.dragging = self.can_grab_render_split();
+                        self.camera().grabbing = true;
                     } else {
                         self.iterations.dragging = false;
+                        self.render_split.dragging = None;
+                        for camera in self.cameras.iter_mut() {
+                            camera.grabbing = false;
+                        }
+                        self.render_split.value = self.render_split.value.clamp(0.0, 1.0);
                     }
                     0
                 }
@@ -141,19 +231,24 @@ impl ControllerTrait for Controller {
     }
 
     fn prepare_render(&mut self, _offset: Vec2) -> impl bytemuck::NoUninit {
-        self.num_iterations = (self.camera.zoom * 10000000000000.0).log2() * 5.0 - 190.0;
+        self.num_iterations = calculate_num_iterations(self.cameras.mandelbrot.zoom);
         let fragment_constants = FragmentConstants {
             size: self.size.into(),
             time: self.start.elapsed().as_secs_f32(),
             cursor: self.cursor,
             prev_cursor: self.prev_cursor,
-            camera_translate: self.camera.translate,
-            camera_zoom: self.camera.zoom,
+            mandelbrot_camera_translate: self.cameras.mandelbrot.translate,
+            mandelbrot_camera_zoom: self.cameras.mandelbrot.zoom,
+            julia_camera_translate: self.cameras.julia.translate,
+            julia_camera_zoom: self.cameras.julia.zoom,
             num_iterations: self.num_iterations,
             style: self.style,
             show_iterations: (self.iterations.enabled && self.iterations.points.len() > 0).into(),
             num_points: self.iterations.points.len() as u32,
-            iterations_marker: self.iterations.marker,
+            marker: self.iterations.marker,
+            render_julia_set: self.render_julia_set.into(),
+            render_split: self.render_split.value,
+            padding: 0,
         };
         fragment_constants
     }
@@ -179,7 +274,7 @@ impl ControllerTrait for Controller {
         _ui_state: &UiState,
         graphics_context: &easy_shader_runner::GraphicsContext,
     ) {
-        let width = if self.debug { 120.0 } else { 80.0 };
+        let width = if self.debug { 150.0 } else { 120.0 };
         if let Some(pos) = self.context_menu {
             let r = egui::Window::new("right_click_menu")
                 .frame(egui::Frame::none())
@@ -206,66 +301,60 @@ impl ControllerTrait for Controller {
             .resizable(false)
             .show(ctx, |ui| {
                 let uv_cursor = self.to_uv(self.cursor);
-                if self.iterations.dragging {
-                    ctx.set_cursor_icon(egui::CursorIcon::Grabbing);
-                } else if self.iterations.enabled
-                    && uv_cursor.distance(self.iterations.marker) < MARKER_RADIUS / self.camera.zoom
-                {
-                    ctx.set_cursor_icon(egui::CursorIcon::Grab);
-                } else {
-                    ctx.set_cursor_icon(egui::CursorIcon::Default);
-                }
-
                 ui.radio_value(&mut self.style, RenderStyle::RedGlow, "Red Glow");
                 ui.radio_value(&mut self.style, RenderStyle::Circus, "Circus");
                 ui.separator();
                 if ui
-                    .checkbox(&mut self.iterations.enabled, "Show Iterations")
+                    .checkbox(&mut self.iterations.enabled, "Marker Iterations")
                     .clicked()
                     && self.iterations.enabled
                 {
-                    self.iterations.marker = self.camera.translate;
                     self.iterations.recompute = true;
                 };
-                if self.iterations.recompute {
-                    use shared::complex::Complex;
-                    self.iterations.points.clear();
-                    let c = Complex::from(self.iterations.marker);
-                    let mut z = Complex::ZERO;
-                    for _ in 0..(self.num_iterations as u32).min(MAX_ITER_POINTS) {
-                        z = z * z + c;
-                        if self.iterations.points.last().is_some_and(|p| p == &z.0)
-                            || z.x.abs() > 10.0
-                            || z.y.abs() > 10.0
-                        {
-                            break;
-                        }
-                        self.iterations.points.push(z.0);
-                    }
-                    if self.iterations.enabled && self.iterations.points.len() > 0 {
-                        graphics_context.queue.write_buffer(
-                            self.iterations.points_buffer.as_ref().unwrap(),
-                            0,
-                            bytemuck::cast_slice(&self.iterations.points),
-                        );
-                    }
-                    self.iterations.recompute = false;
-                }
+                ui.checkbox(&mut self.render_julia_set, "Render Julia Set");
                 ui.separator();
                 ui.checkbox(&mut self.debug, "Debug");
                 if self.debug {
                     egui::Grid::new("debug_grid").show(ui, |ui| {
-                        ui.label("Zoom");
-                        ui.monospace(format!("{:.1}x", self.camera.zoom));
-                        ui.end_row();
+                        {
+                            let camera = &self.cameras.mandelbrot;
+                            ui.label("Mandelbrot Zoom");
+                            let zoom = camera.zoom;
+                            if zoom < 1000.0 {
+                                ui.monospace(format!("{:.2}x", zoom));
+                            } else {
+                                ui.monospace(format!("{:.1}x", zoom));
+                            }
+                            ui.end_row();
 
-                        ui.label("X");
-                        ui.monospace(format!("{:+.6}", self.camera.translate.x));
-                        ui.end_row();
+                            ui.label("Mandelbrot X");
+                            ui.monospace(format!("{:+.6}", camera.translate.x));
+                            ui.end_row();
 
-                        ui.label("Y");
-                        ui.monospace(format!("{:+.6}", self.camera.translate.y));
-                        ui.end_row();
+                            ui.label("Mandelbrot Y");
+                            ui.monospace(format!("{:+.6}", camera.translate.y));
+                            ui.end_row();
+                        }
+
+                        {
+                            let camera = &self.cameras.julia;
+                            ui.label("Julia Zoom");
+                            let zoom = self.cameras.julia.zoom;
+                            if zoom < 1000.0 {
+                                ui.monospace(format!("{:.2}x", zoom));
+                            } else {
+                                ui.monospace(format!("{:.1}x", zoom));
+                            }
+                            ui.end_row();
+
+                            ui.label("Julia X");
+                            ui.monospace(format!("{:+.6}", camera.translate.x));
+                            ui.end_row();
+
+                            ui.label("Julia Y");
+                            ui.monospace(format!("{:+.6}", camera.translate.y));
+                            ui.end_row();
+                        }
 
                         ui.label("Iterations");
                         ui.monospace(format!("{:.2}", self.num_iterations));
@@ -279,7 +368,7 @@ impl ControllerTrait for Controller {
                         ui.monospace(format!("{:+.6}", uv_cursor.y));
                         ui.end_row();
 
-                        if self.iterations.enabled {
+                        if self.iterations.enabled || self.render_julia_set {
                             ui.label("marker X");
                             ui.monospace(format!("{:+.6}", self.iterations.marker.x));
                             ui.end_row();
@@ -291,5 +380,44 @@ impl ControllerTrait for Controller {
                     });
                 }
             });
+        if self.iterations.dragging {
+            ctx.set_cursor_icon(egui::CursorIcon::Grabbing);
+        } else if let Some(icon) = self.render_split.dragging {
+            ctx.set_cursor_icon(icon);
+        } else if self.can_grab_marker() {
+            ctx.set_cursor_icon(egui::CursorIcon::Grab);
+        } else if let Some(icon) = self.can_grab_render_split() {
+            ctx.set_cursor_icon(icon);
+        } else {
+            ctx.set_cursor_icon(egui::CursorIcon::Default);
+        }
+        if self.iterations.recompute {
+            use shared::complex::Complex;
+            self.iterations.points.clear();
+            let c = Complex::from(self.iterations.marker);
+            let mut z = Complex::ZERO;
+            for _ in 0..(self.num_iterations as u32).min(MAX_ITER_POINTS) {
+                z = z * z + c;
+                if self.iterations.points.last().is_some_and(|p| p == &z.0)
+                    || z.x.abs() > 10.0
+                    || z.y.abs() > 10.0
+                {
+                    break;
+                }
+                self.iterations.points.push(self.from_uv(z.0));
+            }
+            if self.iterations.enabled && self.iterations.points.len() > 0 {
+                graphics_context.queue.write_buffer(
+                    self.iterations.points_buffer.as_ref().unwrap(),
+                    0,
+                    bytemuck::cast_slice(&self.iterations.points),
+                );
+            }
+            self.iterations.recompute = false;
+        }
     }
+}
+
+fn calculate_num_iterations(zoom: f32) -> f32 {
+    zoom.log2() * 5.0 + 25.0
 }

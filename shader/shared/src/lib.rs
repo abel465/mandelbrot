@@ -3,4 +3,4 @@
 pub mod complex;
 pub mod push_constants;
 
-pub const MARKER_RADIUS: f32 = 0.016;
+pub const MARKER_RADIUS: f32 = 8.0;
