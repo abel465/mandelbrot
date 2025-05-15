@@ -33,4 +33,6 @@ pub struct FragmentConstants {
     pub render_split: f32,
     pub palette: Palette,
     pub smooth_factor: f32,
+    pub animate_time: f32,
+    pub padding: u32,
 }

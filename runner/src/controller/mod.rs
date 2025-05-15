@@ -91,6 +91,36 @@ impl Smooth {
     }
 }
 
+struct Animate {
+    enable: bool,
+    value: f32,
+    last_instant: Instant,
+    speed: f32,
+    reverse: bool,
+}
+
+impl Default for Animate {
+    fn default() -> Self {
+        Self {
+            enable: false,
+            value: 0.0,
+            last_instant: Instant::now(),
+            speed: 0.1,
+            reverse: false,
+        }
+    }
+}
+
+impl Animate {
+    fn tick(&mut self) {
+        if self.enable {
+            let sgn = if self.reverse { -1.0 } else { 1.0 };
+            self.value += sgn * self.speed * self.last_instant.elapsed().as_secs_f32();
+        }
+        self.last_instant = Instant::now();
+    }
+}
+
 pub struct Controller {
     size: UVec2,
     start: Instant,
@@ -106,6 +136,7 @@ pub struct Controller {
     render_split: RenderSplit,
     palette: Palette,
     smooth: Smooth,
+    animate: Animate,
 }
 
 impl Controller {
@@ -129,6 +160,7 @@ impl Controller {
             render_split: RenderSplit::default(),
             palette: Palette::default(),
             smooth: Smooth::default(),
+            animate: Animate::default(),
         }
     }
 
@@ -258,6 +290,7 @@ impl ControllerTrait for Controller {
     }
 
     fn prepare_render(&mut self, _offset: Vec2) -> impl bytemuck::NoUninit {
+        self.animate.tick();
         self.num_iterations = calculate_num_iterations(self.cameras.mandelbrot.zoom);
         let fragment_constants = FragmentConstants {
             size: self.size.into(),
@@ -276,6 +309,8 @@ impl ControllerTrait for Controller {
             render_split: self.render_split.value,
             palette: self.palette,
             smooth_factor: self.smooth.factor(),
+            animate_time: self.animate.value,
+            padding: 0,
         };
         fragment_constants
     }
@@ -339,14 +374,27 @@ impl ControllerTrait for Controller {
                     ui.end_row();
                     ui.radio_value(&mut self.palette, Palette::G, "G");
                 });
-                ui.horizontal(|ui| {
-                    ui.label("Smooth");
-                    ui.allocate_space(egui::vec2(50.0, 0.0));
-                    ui.add(egui::Checkbox::without_text(&mut self.smooth.enable));
-                });
+                ui.separator();
+                ui.toggle_value(&mut self.smooth.enable, "Smooth");
                 ui.add_enabled(
                     self.smooth.enable,
                     egui::Slider::new(&mut self.smooth.value, 0.0..=1.0),
+                );
+                ui.horizontal(|ui| {
+                    ui.toggle_value(&mut self.animate.enable, "Animate");
+                    if ui
+                        .add_enabled(
+                            self.animate.enable,
+                            egui::SelectableLabel::new(self.animate.reverse, "Reverse"),
+                        )
+                        .clicked()
+                    {
+                        self.animate.reverse = !self.animate.reverse;
+                    }
+                });
+                ui.add_enabled(
+                    self.animate.enable,
+                    egui::Slider::new(&mut self.animate.speed, 0.0..=1.0),
                 );
                 ui.separator();
                 if ui
