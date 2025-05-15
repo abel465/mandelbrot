@@ -3,10 +3,15 @@ use bytemuck::NoUninit;
 
 #[derive(Copy, Clone, Debug, NoUninit, Default, PartialEq)]
 #[repr(u32)]
-pub enum RenderStyle {
+pub enum Palette {
     #[default]
-    RedGlow,
-    Circus,
+    A,
+    B,
+    C,
+    D,
+    E,
+    F,
+    G,
 }
 
 #[derive(Copy, Clone, Debug, NoUninit)]
@@ -22,10 +27,10 @@ pub struct FragmentConstants {
     pub mandelbrot_camera_zoom: f32,
     pub julia_camera_zoom: f32,
     pub num_iterations: f32,
-    pub style: RenderStyle,
     pub show_iterations: Bool,
     pub num_points: u32,
     pub render_julia_set: Bool,
     pub render_split: f32,
-    pub padding: u32,
+    pub palette: Palette,
+    pub smooth_factor: f32,
 }

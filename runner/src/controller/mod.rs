@@ -50,6 +50,7 @@ struct Iterations {
     points: Vec<Vec2>,
     points_buffer: Option<wgpu::Buffer>,
     recompute: bool,
+    norm_squared_value: f32,
 }
 
 struct RenderSplit {
@@ -66,6 +67,30 @@ impl Default for RenderSplit {
     }
 }
 
+struct Smooth {
+    enable: bool,
+    value: f32,
+}
+
+impl Default for Smooth {
+    fn default() -> Self {
+        Self {
+            enable: true,
+            value: 0.5,
+        }
+    }
+}
+
+impl Smooth {
+    fn factor(&self) -> f32 {
+        if self.enable {
+            self.value
+        } else {
+            0.0
+        }
+    }
+}
+
 pub struct Controller {
     size: UVec2,
     start: Instant,
@@ -75,11 +100,12 @@ pub struct Controller {
     cameras: Cameras,
     debug: bool,
     num_iterations: f32,
-    style: RenderStyle,
     iterations: Iterations,
     context_menu: Option<Vec2>,
     render_julia_set: bool,
     render_split: RenderSplit,
+    palette: Palette,
+    smooth: Smooth,
 }
 
 impl Controller {
@@ -93,7 +119,6 @@ impl Controller {
             cameras: Cameras::default(),
             debug: options.debug,
             num_iterations: 50.0,
-            style: RenderStyle::default(),
             iterations: Iterations {
                 marker: vec2(-0.767294, -0.169140),
                 recompute: true,
@@ -102,6 +127,8 @@ impl Controller {
             context_menu: None,
             render_julia_set: true,
             render_split: RenderSplit::default(),
+            palette: Palette::default(),
+            smooth: Smooth::default(),
         }
     }
 
@@ -242,13 +269,13 @@ impl ControllerTrait for Controller {
             julia_camera_translate: self.cameras.julia.translate,
             julia_camera_zoom: self.cameras.julia.zoom,
             num_iterations: self.num_iterations,
-            style: self.style,
             show_iterations: (self.iterations.enabled && self.iterations.points.len() > 0).into(),
             num_points: self.iterations.points.len() as u32,
             marker: self.iterations.marker,
             render_julia_set: self.render_julia_set.into(),
             render_split: self.render_split.value,
-            padding: 0,
+            palette: self.palette,
+            smooth_factor: self.smooth.factor(),
         };
         fragment_constants
     }
@@ -300,9 +327,27 @@ impl ControllerTrait for Controller {
             .max_width(width)
             .resizable(false)
             .show(ctx, |ui| {
-                let uv_cursor = self.to_uv(self.cursor);
-                ui.radio_value(&mut self.style, RenderStyle::RedGlow, "Red Glow");
-                ui.radio_value(&mut self.style, RenderStyle::Circus, "Circus");
+                ui.label("Palette");
+                egui::Grid::new("col_grid").show(ui, |ui| {
+                    ui.radio_value(&mut self.palette, Palette::A, "A");
+                    ui.radio_value(&mut self.palette, Palette::B, "B");
+                    ui.radio_value(&mut self.palette, Palette::C, "C");
+                    ui.end_row();
+                    ui.radio_value(&mut self.palette, Palette::D, "D");
+                    ui.radio_value(&mut self.palette, Palette::E, "E");
+                    ui.radio_value(&mut self.palette, Palette::F, "F");
+                    ui.end_row();
+                    ui.radio_value(&mut self.palette, Palette::G, "G");
+                });
+                ui.horizontal(|ui| {
+                    ui.label("Smooth");
+                    ui.allocate_space(egui::vec2(50.0, 0.0));
+                    ui.add(egui::Checkbox::without_text(&mut self.smooth.enable));
+                });
+                ui.add_enabled(
+                    self.smooth.enable,
+                    egui::Slider::new(&mut self.smooth.value, 0.0..=1.0),
+                );
                 ui.separator();
                 if ui
                     .checkbox(&mut self.iterations.enabled, "Marker Iterations")
@@ -360,14 +405,6 @@ impl ControllerTrait for Controller {
                         ui.monospace(format!("{:.2}", self.num_iterations));
                         ui.end_row();
 
-                        ui.label("cursor X");
-                        ui.monospace(format!("{:+.6}", uv_cursor.x));
-                        ui.end_row();
-
-                        ui.label("cursor Y");
-                        ui.monospace(format!("{:+.6}", uv_cursor.y));
-                        ui.end_row();
-
                         if self.iterations.enabled || self.render_julia_set {
                             ui.label("marker X");
                             ui.monospace(format!("{:+.6}", self.iterations.marker.x));
@@ -375,6 +412,10 @@ impl ControllerTrait for Controller {
 
                             ui.label("marker Y");
                             ui.monospace(format!("{:+.6}", self.iterations.marker.y));
+                            ui.end_row();
+
+                            ui.label("norm_squared");
+                            ui.monospace(format!("{:.4}", self.iterations.norm_squared_value));
                             ui.end_row();
                         }
                     });
@@ -396,16 +437,29 @@ impl ControllerTrait for Controller {
             self.iterations.points.clear();
             let c = Complex::from(self.iterations.marker);
             let mut z = Complex::ZERO;
+            let mut n2_container = None;
             for _ in 0..(self.num_iterations as u32).min(MAX_ITER_POINTS) {
                 z = z * z + c;
+                let norm_squared = z.norm_squared();
+                if norm_squared >= 4.0 {
+                    if n2_container.is_none() {
+                        n2_container = Some(norm_squared);
+                    }
+                }
                 if self.iterations.points.last().is_some_and(|p| p == &z.0)
-                    || z.x.abs() > 10.0
-                    || z.y.abs() > 10.0
+                    || z.x.abs() > 1000.0
+                    || z.y.abs() > 1000.0
                 {
                     break;
                 }
                 self.iterations.points.push(self.from_uv(z.0));
             }
+            if let Some(n2) = n2_container {
+                self.iterations.norm_squared_value = n2;
+            } else {
+                self.iterations.norm_squared_value = 0.0;
+            }
+
             if self.iterations.enabled && self.iterations.points.len() > 0 {
                 graphics_context.queue.write_buffer(
                     self.iterations.points_buffer.as_ref().unwrap(),

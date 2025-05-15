@@ -8,6 +8,7 @@ use spirv_std::glam::*;
 use spirv_std::num_traits::Float;
 use spirv_std::spirv;
 
+mod palette;
 mod sdf;
 
 pub fn lerp(x: f32, y: f32, a: f32) -> f32 {
@@ -51,20 +52,48 @@ pub fn main_fs(
     let is_julia =
         render_julia_set && frag_coord.xy().dot(n) > size.dot(n) * constants.render_split;
 
-    let (z0, c): (Complex, Complex) = if is_julia {
-        (
-            ((frag_coord.xy() - 0.5 * size) / size.y / constants.julia_camera_zoom
-                + constants.julia_camera_translate)
-                .into(),
-            constants.marker.into(),
-        )
-    } else {
-        (Complex::ZERO, mandelbrot_uv.into())
-    };
-    let num_iters = constants.num_iterations;
-    let mut col = match constants.style {
-        RenderStyle::RedGlow => style_red_glow(z0, c, num_iters),
-        RenderStyle::Circus => style_circus(z0, c, num_iters),
+    let mut col = {
+        let num_iters = constants.num_iterations;
+        let (mut z, c): (Complex, Complex) = if is_julia {
+            (
+                ((frag_coord.xy() - 0.5 * size) / size.y / constants.julia_camera_zoom
+                    + constants.julia_camera_translate)
+                    .into(),
+                constants.marker.into(),
+            )
+        } else {
+            (Complex::ZERO, mandelbrot_uv.into())
+        };
+        let mut i = 0;
+        let mut norm_squared;
+        loop {
+            z = z * z + c;
+            i += 1;
+            norm_squared = z.norm_squared();
+            if i >= num_iters as u32 {
+                break;
+            }
+            if norm_squared >= 4.0 {
+                break;
+            }
+        }
+        if i >= num_iters as u32
+            && ((norm_squared - 4.0) * 0.1) < (1.0 - constants.num_iterations.fract())
+        {
+            Vec3::ZERO
+        } else {
+            let x = smoothstep(constants.smooth_factor, 0.0, norm_squared - 4.0);
+            let x = ((i as f32 + x) * 0.1).fract();
+            match constants.palette {
+                Palette::A => palette::cola(x),
+                Palette::B => palette::colb(x),
+                Palette::C => palette::colc(x),
+                Palette::D => palette::cold(x),
+                Palette::E => palette::cole(x),
+                Palette::F => palette::colf(x),
+                Palette::G => palette::colg(x),
+            }
+        }
     };
 
     // Slider
@@ -105,75 +134,6 @@ pub fn main_fs(
     }
 
     *output = col.extend(1.0);
-}
-
-fn style_circus(z0: Complex, c: Complex, num_iters: f32) -> Vec3 {
-    let num_iter_fract = num_iters.fract();
-    let num_iters = num_iters as u32;
-
-    let mut z = z0;
-    let mut i = 0;
-
-    let col = loop {
-        z = z * z + c;
-        i += 1;
-
-        let norm_squared = z.norm_squared();
-        if norm_squared >= 4.0 {
-            let col = if i & 1 == 1 {
-                Vec3::X + Vec3::Y
-            } else {
-                Vec3::X
-            };
-            let col = col * (10.0 / norm_squared).sin();
-
-            if i >= num_iters {
-                let show = ((norm_squared - 4.0) * num_iter_fract) > 0.3;
-                if !show {
-                    break Vec3::ZERO;
-                }
-            }
-
-            break col;
-        }
-
-        if i >= num_iters {
-            return Vec3::ZERO;
-        }
-    };
-
-    col
-}
-
-fn style_red_glow(z0: Complex, c: Complex, num_iters: f32) -> Vec3 {
-    let num_iter_fract = num_iters.fract();
-    let num_iters = num_iters as u32;
-
-    let mut z = z0;
-    let mut i = 0;
-    loop {
-        z = z * z + c;
-        i += 1;
-
-        let norm_squared = z.norm_squared();
-        if norm_squared >= 4.0 {
-            let smoothing = 0.03 * smoothstep(1.0, 0.0, norm_squared.sqrt() - 2.0);
-            let red = i as f32 / num_iters as f32 + smoothing;
-
-            if i >= num_iters {
-                let show = ((norm_squared - 4.0) * num_iter_fract) > 0.3;
-                if !show {
-                    break Vec3::ZERO;
-                }
-            }
-
-            break red * Vec3::X;
-        }
-
-        if i >= num_iters {
-            break Vec3::ZERO;
-        }
-    }
 }
 
 #[spirv(vertex)]
