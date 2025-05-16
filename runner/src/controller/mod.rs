@@ -141,6 +141,7 @@ pub struct Controller {
     palette_period: f32,
     smooth: Smooth,
     animate: Animate,
+    show_fps: bool,
 }
 
 impl Controller {
@@ -167,6 +168,7 @@ impl Controller {
             palette_period: 0.5,
             smooth: Smooth::default(),
             animate: Animate::default(),
+            show_fps: false,
         }
     }
 

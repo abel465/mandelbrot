@@ -7,7 +7,7 @@ impl Controller {
     pub fn ui_impl(
         &mut self,
         ctx: &egui::Context,
-        _ui_state: &UiState,
+        ui_state: &UiState,
         graphics_context: &easy_shader_runner::GraphicsContext,
     ) {
         let width = if self.debug { 150.0 } else { 120.0 };
@@ -83,7 +83,11 @@ impl Controller {
                 };
                 ui.checkbox(&mut self.render_julia_set, "Render Julia Set");
                 ui.separator();
-                ui.checkbox(&mut self.debug, "Debug");
+                ui.horizontal(|ui| {
+                    ui.checkbox(&mut self.debug, "Debug");
+                    ui.add_space(12.0);
+                    ui.checkbox(&mut self.show_fps, "Show FPS");
+                });
                 if self.debug {
                     egui::Grid::new("debug_grid").show(ui, |ui| {
                         {
@@ -193,6 +197,19 @@ impl Controller {
                 );
             }
             self.iterations.recompute = false;
+        }
+        if self.show_fps {
+            egui::Window::new("fps")
+                .title_bar(false)
+                .resizable(false)
+                .interactable(false)
+                .anchor(
+                    egui::Align2::RIGHT_BOTTOM,
+                    egui::Vec2::splat(-10.0),
+                )
+                .show(ctx, |ui| {
+                    ui.label(format!("FPS: {}", ui_state.fps));
+                });
         }
     }
 }
