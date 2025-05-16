@@ -136,6 +136,7 @@ pub struct Controller {
     render_julia_set: bool,
     render_split: RenderSplit,
     palette: Palette,
+    palette_period: f32,
     smooth: Smooth,
     animate: Animate,
 }
@@ -161,6 +162,7 @@ impl Controller {
             render_julia_set: true,
             render_split: RenderSplit::default(),
             palette: Palette::default(),
+            palette_period: 0.5,
             smooth: Smooth::default(),
             animate: Animate::default(),
         }
@@ -314,7 +316,7 @@ impl ControllerTrait for Controller {
             palette: self.palette,
             smooth_factor: self.smooth.factor(),
             animate_time: self.animate.value,
-            padding: 0,
+            palette_period: self.palette_period,
         };
         fragment_constants
     }
@@ -366,7 +368,9 @@ impl ControllerTrait for Controller {
             .max_width(width)
             .resizable(false)
             .show(ctx, |ui| {
-                ui.label("Palette");
+                ui.vertical_centered(|ui| {
+                    ui.heading("Palette");
+                });
                 egui::Grid::new("col_grid").show(ui, |ui| {
                     ui.radio_value(&mut self.palette, Palette::A, "A");
                     ui.radio_value(&mut self.palette, Palette::B, "B");
@@ -376,8 +380,9 @@ impl ControllerTrait for Controller {
                     ui.radio_value(&mut self.palette, Palette::E, "E");
                     ui.radio_value(&mut self.palette, Palette::F, "F");
                     ui.end_row();
-                    ui.radio_value(&mut self.palette, Palette::G, "G");
                 });
+                ui.label("Period");
+                ui.add(egui::Slider::new(&mut self.palette_period, 0.01..=1.0));
                 ui.separator();
                 ui.toggle_value(&mut self.smooth.enable, "Smooth");
                 ui.add_enabled(

@@ -56,22 +56,12 @@ pub fn cole(t: f32) -> Vec3 {
         t,
         vec3(0.5, 0.5, 0.5),
         vec3(0.5, 0.5, 0.5),
-        vec3(1.0, 0.7, 0.4),
-        vec3(0.0, 0.15, 0.20),
-    )
-}
-
-pub fn colf(t: f32) -> Vec3 {
-    pal(
-        t,
-        vec3(0.5, 0.5, 0.5),
-        vec3(0.5, 0.5, 0.5),
         vec3(2.0, 1.0, 0.0),
         vec3(0.5, 0.20, 0.25),
     )
 }
 
-pub fn colg(t: f32) -> Vec3 {
+pub fn colf(t: f32) -> Vec3 {
     pal(
         t,
         vec3(0.8, 0.5, 0.4),

@@ -11,7 +11,6 @@ pub enum Palette {
     D,
     E,
     F,
-    G,
 }
 
 #[derive(Copy, Clone, Debug, NoUninit)]
@@ -34,5 +33,5 @@ pub struct FragmentConstants {
     pub palette: Palette,
     pub smooth_factor: f32,
     pub animate_time: f32,
-    pub padding: u32,
+    pub palette_period: f32,
 }

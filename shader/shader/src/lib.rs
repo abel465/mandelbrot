@@ -82,9 +82,10 @@ pub fn main_fs(
         {
             Vec3::ZERO
         } else {
-            let t = constants.animate_time * 10.0;
+            let period = constants.palette_period;
+            let t = constants.animate_time * 10.0 / period;
             let x = smoothstep(constants.smooth_factor, 0.0, norm_squared - 4.0);
-            let x = ((i as f32 + x - t) * 0.1).fract();
+            let x = ((i as f32 + x - t) * 0.1 * period).fract();
             match constants.palette {
                 Palette::A => palette::cola(x),
                 Palette::B => palette::colb(x),
@@ -92,7 +93,6 @@ pub fn main_fs(
                 Palette::D => palette::cold(x),
                 Palette::E => palette::cole(x),
                 Palette::F => palette::colf(x),
-                Palette::G => palette::colg(x),
             }
         }
     };
