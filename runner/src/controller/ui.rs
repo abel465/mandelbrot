@@ -10,7 +10,7 @@ impl Controller {
         ui_state: &UiState,
         graphics_context: &easy_shader_runner::GraphicsContext,
     ) {
-        let width = if self.debug { 150.0 } else { 120.0 };
+        let width = 120.0;
         if let Some(pos) = self.context_menu {
             let r = egui::Window::new("right_click_menu")
                 .frame(egui::Frame::NONE)
@@ -88,67 +88,6 @@ impl Controller {
                     ui.add_space(12.0);
                     ui.checkbox(&mut self.show_fps, "Show FPS");
                 });
-                if self.debug {
-                    egui::Grid::new("debug_grid").show(ui, |ui| {
-                        {
-                            let camera = &self.cameras.mandelbrot;
-                            ui.label("Mandelbrot Zoom");
-                            let zoom = camera.zoom;
-                            if zoom < 1000.0 {
-                                ui.monospace(format!("{:.2}x", zoom));
-                            } else {
-                                ui.monospace(format!("{:.1}x", zoom));
-                            }
-                            ui.end_row();
-
-                            ui.label("Mandelbrot X");
-                            ui.monospace(format!("{:+.6}", camera.translate.x));
-                            ui.end_row();
-
-                            ui.label("Mandelbrot Y");
-                            ui.monospace(format!("{:+.6}", camera.translate.y));
-                            ui.end_row();
-                        }
-
-                        {
-                            let camera = &self.cameras.julia;
-                            ui.label("Julia Zoom");
-                            let zoom = self.cameras.julia.zoom;
-                            if zoom < 1000.0 {
-                                ui.monospace(format!("{:.2}x", zoom));
-                            } else {
-                                ui.monospace(format!("{:.1}x", zoom));
-                            }
-                            ui.end_row();
-
-                            ui.label("Julia X");
-                            ui.monospace(format!("{:+.6}", camera.translate.x));
-                            ui.end_row();
-
-                            ui.label("Julia Y");
-                            ui.monospace(format!("{:+.6}", camera.translate.y));
-                            ui.end_row();
-                        }
-
-                        ui.label("Iterations");
-                        ui.monospace(format!("{:.2}", self.num_iterations));
-                        ui.end_row();
-
-                        if self.iterations.enabled || self.render_julia_set {
-                            ui.label("marker X");
-                            ui.monospace(format!("{:+.6}", self.iterations.marker.x));
-                            ui.end_row();
-
-                            ui.label("marker Y");
-                            ui.monospace(format!("{:+.6}", self.iterations.marker.y));
-                            ui.end_row();
-
-                            ui.label("norm_squared");
-                            ui.monospace(format!("{:.4}", self.iterations.norm_squared_value));
-                            ui.end_row();
-                        }
-                    });
-                }
             });
         if self.iterations.dragging {
             ctx.set_cursor_icon(egui::CursorIcon::Grabbing);
@@ -203,13 +142,80 @@ impl Controller {
                 .title_bar(false)
                 .resizable(false)
                 .interactable(false)
-                .anchor(
-                    egui::Align2::RIGHT_BOTTOM,
-                    egui::Vec2::splat(-10.0),
-                )
+                .anchor(egui::Align2::RIGHT_BOTTOM, egui::Vec2::splat(-10.0))
                 .show(ctx, |ui| {
                     ui.label(format!("FPS: {}", ui_state.fps));
                 });
         }
+        if self.debug {
+            self.debug_ui(ctx);
+        }
+    }
+
+    pub fn debug_ui(&mut self, ctx: &egui::Context) {
+        egui::Window::new("debug_window")
+            .title_bar(false)
+            .resizable(false)
+            .show(ctx, |ui| {
+                egui::Grid::new("debug_grid").show(ui, |ui| {
+                    {
+                        let camera = &self.cameras.mandelbrot;
+                        ui.label("Mandelbrot Zoom");
+                        let zoom = camera.zoom;
+                        if zoom < 1000.0 {
+                            ui.monospace(format!("{:.2}x", zoom));
+                        } else {
+                            ui.monospace(format!("{:.1}x", zoom));
+                        }
+                        ui.end_row();
+
+                        ui.label("Mandelbrot X");
+                        ui.monospace(format!("{:+.6}", camera.translate.x));
+                        ui.end_row();
+
+                        ui.label("Mandelbrot Y");
+                        ui.monospace(format!("{:+.6}", camera.translate.y));
+                        ui.end_row();
+                    }
+
+                    {
+                        let camera = &self.cameras.julia;
+                        ui.label("Julia Zoom");
+                        let zoom = self.cameras.julia.zoom;
+                        if zoom < 1000.0 {
+                            ui.monospace(format!("{:.2}x", zoom));
+                        } else {
+                            ui.monospace(format!("{:.1}x", zoom));
+                        }
+                        ui.end_row();
+
+                        ui.label("Julia X");
+                        ui.monospace(format!("{:+.6}", camera.translate.x));
+                        ui.end_row();
+
+                        ui.label("Julia Y");
+                        ui.monospace(format!("{:+.6}", camera.translate.y));
+                        ui.end_row();
+                    }
+
+                    ui.label("Iterations");
+                    ui.monospace(format!("{:.2}", self.num_iterations));
+                    ui.end_row();
+
+                    if self.iterations.enabled || self.render_julia_set {
+                        ui.label("marker X");
+                        ui.monospace(format!("{:+.6}", self.iterations.marker.x));
+                        ui.end_row();
+
+                        ui.label("marker Y");
+                        ui.monospace(format!("{:+.6}", self.iterations.marker.y));
+                        ui.end_row();
+
+                        ui.label("norm_squared");
+                        ui.monospace(format!("{:.4}", self.iterations.norm_squared_value));
+                        ui.end_row();
+                    }
+                });
+            });
     }
 }
