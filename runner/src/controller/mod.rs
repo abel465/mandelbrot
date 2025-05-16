@@ -6,7 +6,8 @@ use shared::MARKER_RADIUS;
 use web_time::Instant;
 use winit::event::{ElementState, MouseButton};
 
-const MAX_ITER_POINTS: u32 = 100;
+const MAX_ZOOM: f32 = 999999.9;
+const MAX_ITER_POINTS: u32 = 125;
 
 struct Cameras {
     mandelbrot: Camera,
@@ -141,6 +142,7 @@ pub struct Controller {
 
 impl Controller {
     pub fn new(options: &Options) -> Self {
+        debug_assert!(MAX_ITER_POINTS >= calculate_num_iterations(MAX_ZOOM) as u32);
         Self {
             size: UVec2::ZERO,
             start: Instant::now(),
@@ -248,10 +250,12 @@ impl ControllerTrait for Controller {
         let val = delta.y * 0.1;
         let prev_zoom = camera.zoom;
         let mouse_pos0 = ((cursor - size / 2.0) / size.y) / camera.zoom;
-        camera.zoom = (prev_zoom * (1.0 + val)).clamp(0.05, 999999.9);
+        camera.zoom = (prev_zoom * (1.0 + val)).clamp(0.05, MAX_ZOOM);
         let mouse_pos1 = ((cursor - size / 2.0) / size.y) / camera.zoom;
         camera.translate += mouse_pos0 - mouse_pos1;
-        self.iterations.recompute = true;
+        if val > 0.0 {
+            self.iterations.recompute = true;
+        }
     }
 
     fn mouse_input(&mut self, state: ElementState, button: MouseButton) {
@@ -486,7 +490,7 @@ impl ControllerTrait for Controller {
             let c = Complex::from(self.iterations.marker);
             let mut z = Complex::ZERO;
             let mut n2_container = None;
-            for _ in 0..(self.num_iterations as u32).min(MAX_ITER_POINTS) {
+            for _ in 0..self.num_iterations as u32 {
                 z = z * z + c;
                 let norm_squared = z.norm_squared();
                 if norm_squared >= 4.0 {
@@ -521,5 +525,5 @@ impl ControllerTrait for Controller {
 }
 
 fn calculate_num_iterations(zoom: f32) -> f32 {
-    zoom.log2() * 5.0 + 25.0
+    (zoom + 1.0).log2() * 5.0 + 25.0
 }
