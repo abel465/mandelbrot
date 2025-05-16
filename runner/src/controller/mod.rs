@@ -345,7 +345,7 @@ impl ControllerTrait for Controller {
         let width = if self.debug { 150.0 } else { 120.0 };
         if let Some(pos) = self.context_menu {
             let r = egui::Window::new("right_click_menu")
-                .frame(egui::Frame::none())
+                .frame(egui::Frame::NONE)
                 .title_bar(false)
                 .resizable(false)
                 .fixed_pos(egui::pos2(pos.x, pos.y))
