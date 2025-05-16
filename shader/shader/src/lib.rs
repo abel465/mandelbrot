@@ -22,14 +22,6 @@ pub fn smoothstep(edge0: f32, edge1: f32, x: f32) -> f32 {
     x * x * (3.0 - 2.0 * x)
 }
 
-fn from_uv(constants: &FragmentConstants, p: Vec2) -> Vec2 {
-    let size = constants.size.as_vec2();
-    (p - constants.mandelbrot_camera_translate) / vec2(size.x / size.y, 1.0)
-        * constants.mandelbrot_camera_zoom
-        * size
-        + 0.5 * size
-}
-
 #[spirv(fragment)]
 pub fn main_fs(
     #[spirv(frag_coord)] frag_coord: Vec4,
@@ -114,18 +106,18 @@ pub fn main_fs(
             for i in 0..constants.num_points as usize - 1 {
                 let p0 = iteration_points[i];
                 let p1 = iteration_points[i + 1];
-                let d = sdf::line_segment(frag_coord.xy(), p0, p1).abs();
-                intensity = intensity.max(smoothstep(2.0, 0.0, d).abs());
+                let d = sdf::line_segment(mandelbrot_uv, p0, p1).abs();
+                intensity = intensity.max(smoothstep(2.0 / mandelbrot_zoom / size.y, 0.0, d).abs());
             }
             col += intensity;
         }
         // Marker
         {
             let d = sdf::disk(
-                frag_coord.xy() - from_uv(&constants, constants.marker),
-                MARKER_RADIUS,
+                mandelbrot_uv - constants.marker,
+                MARKER_RADIUS / mandelbrot_zoom / size.y,
             );
-            let intensity = smoothstep(3.0, 0.0, d.abs());
+            let intensity = smoothstep(3.0 / mandelbrot_zoom / size.y, 0.0, d.abs());
             if d < 0.0 {
                 col = Vec3::splat(intensity);
             } else {

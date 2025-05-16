@@ -509,7 +509,7 @@ impl ControllerTrait for Controller {
                 {
                     break;
                 }
-                self.iterations.points.push(self.from_uv(z.0));
+                self.iterations.points.push(z.0);
             }
             if let Some(n2) = n2_container {
                 self.iterations.norm_squared_value = n2;
