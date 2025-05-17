@@ -142,6 +142,7 @@ pub struct Controller {
     smooth: Smooth,
     animate: Animate,
     show_fps: bool,
+    render_style: RenderStyle,
 }
 
 impl Controller {
@@ -168,6 +169,7 @@ impl Controller {
             smooth: Smooth::default(),
             animate: Animate::default(),
             show_fps: false,
+            render_style: RenderStyle::default(),
         }
     }
 
@@ -320,6 +322,8 @@ impl ControllerTrait for Controller {
             smooth_factor: self.smooth.factor(),
             animate_time: self.animate.value,
             palette_period: self.palette_period,
+            render_style: self.render_style,
+            padding: 0,
         };
         fragment_constants
     }

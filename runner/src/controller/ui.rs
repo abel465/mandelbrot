@@ -109,7 +109,7 @@ impl Controller {
             .resizable(false)
             .show(ctx, |ui| {
                 ui.vertical_centered(|ui| {
-                    ui.heading("Palette");
+                    ui.label(egui::RichText::new("Palette").size(15.0));
                 });
                 egui::Grid::new("col_grid").show(ui, |ui| {
                     ui.radio_value(&mut self.palette, Palette::A, "A");
@@ -123,6 +123,19 @@ impl Controller {
                 });
                 ui.label("Period");
                 ui.add(egui::Slider::new(&mut self.palette_period, 0.01..=1.0));
+                ui.separator();
+                ui.vertical_centered(|ui| {
+                    ui.label(egui::RichText::new("Render Style").size(15.0));
+                });
+                ui.horizontal(|ui| {
+                    ui.radio_value(
+                        &mut self.render_style,
+                        RenderStyle::Iterations,
+                        "Iterations",
+                    );
+                    ui.add_space(20.0);
+                    ui.radio_value(&mut self.render_style, RenderStyle::Arg, "Arg");
+                });
                 ui.separator();
                 ui.toggle_value(&mut self.smooth.enable, "Smooth");
                 ui.add_enabled(

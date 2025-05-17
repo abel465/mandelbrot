@@ -3,6 +3,14 @@ use bytemuck::NoUninit;
 
 #[derive(Copy, Clone, Debug, NoUninit, Default, PartialEq)]
 #[repr(u32)]
+pub enum RenderStyle {
+    #[default]
+    Iterations,
+    Arg,
+}
+
+#[derive(Copy, Clone, Debug, NoUninit, Default, PartialEq)]
+#[repr(u32)]
 pub enum Palette {
     #[default]
     A,
@@ -34,4 +42,6 @@ pub struct FragmentConstants {
     pub smooth_factor: f32,
     pub animate_time: f32,
     pub palette_period: f32,
+    pub render_style: RenderStyle,
+    pub padding: u32,
 }

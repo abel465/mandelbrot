@@ -1,5 +1,6 @@
 #![no_std]
 
+use core::f32::consts::PI;
 use push_constants::shader::*;
 use shared::complex::Complex;
 use shared::*;
@@ -20,6 +21,17 @@ pub fn smoothstep(edge0: f32, edge1: f32, x: f32) -> f32 {
     let x = ((x - edge0) / (edge1 - edge0)).clamp(0.0, 1.0);
     // Evaluate polynomial
     x * x * (3.0 - 2.0 * x)
+}
+
+fn get_col(palette: Palette, x: f32) -> Vec3 {
+    match palette {
+        Palette::A => palette::cola(x),
+        Palette::B => palette::colb(x),
+        Palette::C => palette::colc(x),
+        Palette::D => palette::cold(x),
+        Palette::E => palette::cole(x),
+        Palette::F => palette::colf(x),
+    }
 }
 
 #[spirv(fragment)]
@@ -69,22 +81,40 @@ pub fn main_fs(
                 break;
             }
         }
-        if i >= num_iters as u32
-            && ((norm_squared - 4.0) * 0.1) < (1.0 - constants.num_iterations.fract())
-        {
-            Vec3::ZERO
-        } else {
-            let period = constants.palette_period;
-            let t = constants.animate_time * 10.0 / period;
-            let x = smoothstep(constants.smooth_factor, 0.0, norm_squared - 4.0);
-            let x = ((i as f32 + x - t) * 0.1 * period).fract();
-            match constants.palette {
-                Palette::A => palette::cola(x),
-                Palette::B => palette::colb(x),
-                Palette::C => palette::colc(x),
-                Palette::D => palette::cold(x),
-                Palette::E => palette::cole(x),
-                Palette::F => palette::colf(x),
+        let smooth = constants.smooth_factor;
+        match constants.render_style {
+            RenderStyle::Arg => {
+                if i >= num_iters as u32 {
+                    Vec3::ZERO
+                } else {
+                    let period = (1 << (constants.palette_period * 2.0) as u32) as f32 * 0.5;
+                    let t = constants.animate_time * PI;
+                    if i & 1 == 1 {
+                        z = z * z + c;
+                        let col = get_col(constants.palette, (z.arg() / PI) * period + t);
+                        col
+                    } else {
+                        let col = get_col(constants.palette, (z.arg() / PI) * period + t);
+                        z = z * z + c;
+                        z = z * z + c;
+                        let col2 = get_col(constants.palette, (z.arg() / PI) * period + t);
+                        let s = smoothstep(smooth * 10.0, 0.0, norm_squared - 4.0);
+                        col.lerp(col2, s)
+                    }
+                }
+            }
+            RenderStyle::Iterations => {
+                if i >= num_iters as u32
+                    && ((norm_squared - 4.0) * 0.1) < (1.0 - constants.num_iterations.fract())
+                {
+                    Vec3::ZERO
+                } else {
+                    let period = constants.palette_period;
+                    let t = constants.animate_time * 10.0;
+                    let x = smoothstep(smooth, 0.0, norm_squared - 4.0);
+                    let x = ((i as f32 + x) * period - t) * 0.1;
+                    get_col(constants.palette, x)
+                }
             }
         }
     };
