@@ -43,8 +43,8 @@ impl Controller {
                 }
             }
             if self.iterations.points.last().is_some_and(|p| p == &z.0)
-                || z.x.abs() > 1000.0
-                || z.y.abs() > 1000.0
+                || z.x.abs() > 1e9
+                || z.y.abs() > 1e9
             {
                 break;
             }
