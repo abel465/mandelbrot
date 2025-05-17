@@ -29,6 +29,7 @@ impl Controller {
 
     fn recompute_iterations(&mut self, graphics_context: &easy_shader_runner::GraphicsContext) {
         use shared::complex::Complex;
+        debug_assert!(self.iterations.enabled);
         self.iterations.points.clear();
         let c = Complex::from(self.iterations.marker);
         let mut z = Complex::ZERO;
@@ -55,7 +56,7 @@ impl Controller {
             self.iterations.norm_squared_value = 0.0;
         }
 
-        if self.iterations.enabled && self.iterations.points.len() > 0 {
+        if self.iterations.points.len() > 0 {
             graphics_context.queue.write_buffer(
                 self.iterations.points_buffer.as_ref().unwrap(),
                 0,

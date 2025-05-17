@@ -158,7 +158,6 @@ impl Controller {
             num_iterations: 50.0,
             iterations: Iterations {
                 marker: vec2(-0.767294, -0.169140),
-                recompute: true,
                 ..Default::default()
             },
             context_menu: None,
@@ -232,7 +231,7 @@ impl ControllerTrait for Controller {
         self.cursor = position;
         if self.iterations.dragging {
             self.iterations.marker += self.to_uv(self.cursor) - self.to_uv(self.prev_cursor);
-            self.iterations.recompute = true;
+            self.iterations.recompute = self.iterations.enabled;
         } else if self.render_split.dragging.is_some() {
             let size = self.size.as_vec2();
             let delta = (self.prev_cursor - self.cursor) / size;
@@ -260,7 +259,7 @@ impl ControllerTrait for Controller {
         let mouse_pos1 = ((cursor - size / 2.0) / size.y) / camera.zoom;
         camera.translate += mouse_pos0 - mouse_pos1;
         if val > 0.0 {
-            self.iterations.recompute = true;
+            self.iterations.recompute = self.iterations.enabled;
         }
     }
 
