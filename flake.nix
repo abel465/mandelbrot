@@ -58,7 +58,8 @@
           src = ./.;
           cargoLock.lockFile = ./Cargo.lock;
           cargoLock.outputHashes = {
-            "rustc_codegen_spirv-0.9.0" = "sha256-XRw46OpMhOz7zx5x5dBC+SUspyCXxY5nMotzyLPfvNA=";
+            "rustc_codegen_spirv-0.9.0" = "sha256-fVE62L+uyzB0Ydol1q1Ge+8S/oYZxZYZj4eGBsYi6S0=";
+            "easy-shader-runner-0.0.0" = "sha256-iYcMFzjWS3LA8xyJZAB4TUhHxOY4/nC3aQ+OwEz24RU=";
           };
           buildNoDefaultFeatures = true;
           buildFeatures = ["runtime-compilation"];
@@ -75,16 +76,16 @@
           '';
           fixupPhase = ''
             cp -r . $out/repo
-            wrapProgram $out/bin/mandelbrot \
+            wrapProgram $out/bin/runner \
               --set LD_LIBRARY_PATH $LD_LIBRARY_PATH:$out/lib:${nixpkgs.lib.makeLibraryPath buildInputs} \
               --set PATH $PATH:${nixpkgs.lib.makeBinPath [rustPkg]} \
-              --set CARGO_MANIFEST_DIR $out/repo/mandelbrot
+              --set CARGO_MANIFEST_DIR $out/repo/runner
           '';
         };
       in rec {
         packages.default = pkgs.writeShellScriptBin "mandelbrot" ''
           export CARGO_TARGET_DIR="${shadersCompilePath}"
-          exec -a "$0" "${rustPackage}/bin/mandelbrot" "$@"
+          exec -a "$0" "${rustPackage}/bin/runner" "$@"
         '';
         apps.default = {
           type = "app";
