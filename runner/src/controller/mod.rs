@@ -13,6 +13,7 @@ const MAX_ITER_POINTS: u32 = 380;
 const MAX_ADDITIONAL_ITERS: u32 = 200;
 
 struct Cameras {
+    has_calibrated: bool,
     mandelbrot: Camera,
     julia: Camera,
 }
@@ -26,6 +27,7 @@ impl Cameras {
 impl Default for Cameras {
     fn default() -> Self {
         Self {
+            has_calibrated: false,
             julia: Camera {
                 zoom: 0.25,
                 translate: vec2(-1.3, 0.0),
@@ -236,6 +238,13 @@ impl Controller {
 
 impl ControllerTrait for Controller {
     fn resize(&mut self, size: UVec2) {
+        if !self.cameras.has_calibrated {
+            if size.x < size.y {
+                self.cameras.mandelbrot.translate = vec2(-0.8, 1.0);
+                self.cameras.julia.translate = vec2(0.0, -1.0);
+            }
+            self.cameras.has_calibrated = true;
+        }
         self.size = size;
     }
 
