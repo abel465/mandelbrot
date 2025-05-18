@@ -137,6 +137,23 @@ impl Controller {
                     ui.radio_value(&mut self.render_style, RenderStyle::Arg, "Arg");
                 });
                 ui.separator();
+                ui.vertical_centered(|ui| {
+                    ui.label(egui::RichText::new("Additional Iterations").size(14.0));
+                });
+                if ui
+                    .add(egui::Slider::new(
+                        &mut self.additional_iterations,
+                        0..=super::MAX_ADDITIONAL_ITERS,
+                    ))
+                    .changed()
+                {
+                    self.num_iterations = super::calculate_num_iterations(
+                        self.cameras.mandelbrot.zoom,
+                        self.additional_iterations as f32,
+                    );
+                    self.iterations.recompute = self.iterations.enabled;
+                };
+                ui.separator();
                 ui.toggle_value(&mut self.smooth.enable, "Smooth");
                 ui.add_enabled(
                     self.smooth.enable,

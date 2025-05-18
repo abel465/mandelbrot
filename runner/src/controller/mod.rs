@@ -9,7 +9,8 @@ use winit::event::{ElementState, MouseButton};
 mod ui;
 
 const MAX_ZOOM: f32 = 999999.9;
-const MAX_ITER_POINTS: u32 = 125;
+const MAX_ITER_POINTS: u32 = 380;
+const MAX_ADDITIONAL_ITERS: u32 = 200;
 
 struct Cameras {
     mandelbrot: Camera,
@@ -143,20 +144,29 @@ pub struct Controller {
     animate: Animate,
     show_fps: bool,
     render_style: RenderStyle,
+    additional_iterations: u32,
 }
 
 impl Controller {
     pub fn new(options: &Options) -> Self {
-        debug_assert!(MAX_ITER_POINTS >= calculate_num_iterations(MAX_ZOOM) as u32);
+        debug_assert!(
+            MAX_ITER_POINTS
+                >= calculate_num_iterations(MAX_ZOOM, MAX_ADDITIONAL_ITERS as f32) as u32
+        );
+        let additional_iterations = 25;
+        let cameras = Cameras::default();
         Self {
             size: UVec2::ZERO,
             start: Instant::now(),
             cursor: Vec2::ZERO,
             prev_cursor: Vec2::ZERO,
             mouse_button_pressed: 0,
-            cameras: Cameras::default(),
+            num_iterations: calculate_num_iterations(
+                cameras.mandelbrot.zoom,
+                additional_iterations as f32,
+            ),
+            cameras,
             debug: options.debug,
-            num_iterations: 50.0,
             iterations: Iterations {
                 marker: vec2(-0.767294, -0.169140),
                 ..Default::default()
@@ -170,6 +180,7 @@ impl Controller {
             animate: Animate::default(),
             show_fps: false,
             render_style: RenderStyle::default(),
+            additional_iterations,
         }
     }
 
@@ -260,9 +271,11 @@ impl ControllerTrait for Controller {
         camera.zoom = (prev_zoom * (1.0 + val)).clamp(0.05, MAX_ZOOM);
         let mouse_pos1 = ((cursor - size / 2.0) / size.y) / camera.zoom;
         camera.translate += mouse_pos0 - mouse_pos1;
-        if val > 0.0 {
-            self.iterations.recompute = self.iterations.enabled;
-        }
+        self.iterations.recompute = self.iterations.enabled;
+        self.num_iterations = calculate_num_iterations(
+            self.cameras.mandelbrot.zoom,
+            self.additional_iterations as f32,
+        );
     }
 
     fn mouse_input(&mut self, state: ElementState, button: MouseButton) {
@@ -302,7 +315,6 @@ impl ControllerTrait for Controller {
 
     fn prepare_render(&mut self, _offset: Vec2) -> impl bytemuck::NoUninit {
         self.animate.tick();
-        self.num_iterations = calculate_num_iterations(self.cameras.mandelbrot.zoom);
         let fragment_constants = FragmentConstants {
             size: self.size.into(),
             time: self.start.elapsed().as_secs_f32(),
@@ -353,6 +365,6 @@ impl ControllerTrait for Controller {
     }
 }
 
-fn calculate_num_iterations(zoom: f32) -> f32 {
-    (zoom + 1.0).log2() * 5.0 + 25.0
+fn calculate_num_iterations(zoom: f32, c: f32) -> f32 {
+    ((zoom + 1.0).log2() * 9.0 + c).max(1.0)
 }
