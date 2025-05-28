@@ -76,6 +76,7 @@ pub fn main_fs(
         match constants.render_style {
             RenderStyle::Iterations => col_from_iterations(constants, z0, c),
             RenderStyle::Arg => col_from_arg(constants, z0, c),
+            RenderStyle::Distance => col_from_distance(constants, z0, c),
         }
     };
 
@@ -145,16 +146,16 @@ fn col_from_iterations(constants: &FragmentConstants, mut z: Complex, c: Complex
 fn col_from_arg(constants: &FragmentConstants, mut z: Complex, c: Complex) -> Vec3 {
     let num_iters = constants.num_iterations;
     let mut i = 0;
-    let mut norm_squared = z.norm_squared();
+    let mut norm_sq = z.norm_squared();
     let mut prev_z = Complex::ZERO;
-    while norm_squared < 4.0 && i < num_iters as u32 {
+    while norm_sq < 4.0 && i < num_iters as u32 {
         prev_z = z;
         z = z * z + c;
         i += 1;
-        norm_squared = z.norm_squared();
+        norm_sq = z.norm_squared();
     }
-    let h = get_lerp_factor(prev_z.norm_squared(), norm_squared);
-    if norm_squared < 4.0 || i == num_iters as u32 && constants.num_iterations.fract() < h {
+    let h = get_lerp_factor(prev_z.norm_squared(), norm_sq);
+    if norm_sq < 4.0 || i == num_iters as u32 && constants.num_iterations.fract() < h {
         Vec3::ZERO
     } else {
         let period = (1 << (constants.palette_period * 3.0) as u32) as f32 / TAU;
@@ -163,6 +164,33 @@ fn col_from_arg(constants: &FragmentConstants, mut z: Complex, c: Complex) -> Ve
         let col2 = get_col(constants.palette, z.arg() * period - t);
         let s = smoothstep(0.0, constants.smooth_factor, h);
         col.lerp(col2, s)
+    }
+}
+
+fn col_from_distance(constants: &FragmentConstants, mut z: Complex, c: Complex) -> Vec3 {
+    let num_iters = constants.num_iterations;
+    let mut i = 0;
+    let mut dist = 0.0;
+    let mut prev_dist = 0.0;
+    let mut norm_sq = z.norm_squared();
+    let mut prev_z = Complex::ZERO;
+    while norm_sq < 4.0 && i < num_iters as u32 {
+        prev_dist = dist;
+        prev_z = z;
+        z = z * z + c;
+        dist += prev_z.distance(z.0);
+        i += 1;
+        norm_sq = z.norm_squared();
+    }
+    let h = get_lerp_factor(prev_z.norm_squared(), norm_sq);
+    if norm_sq < 4.0 || i == num_iters as u32 && constants.num_iterations.fract() < h {
+        Vec3::ZERO
+    } else {
+        let period = constants.palette_period * 0.2;
+        let t = constants.animate_time;
+        let s = smoothstep(0.0, constants.smooth_factor, h);
+        let x = lerp(prev_dist, dist, s) * period - t;
+        get_col(constants.palette, x)
     }
 }
 

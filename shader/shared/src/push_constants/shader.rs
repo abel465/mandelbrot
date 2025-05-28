@@ -7,6 +7,7 @@ pub enum RenderStyle {
     #[default]
     Iterations,
     Arg,
+    Distance,
 }
 
 #[derive(Copy, Clone, Debug, NoUninit, Default, PartialEq)]

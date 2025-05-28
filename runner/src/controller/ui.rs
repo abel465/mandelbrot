@@ -127,14 +127,16 @@ impl Controller {
                 ui.vertical_centered(|ui| {
                     ui.label(egui::RichText::new("Render Style").size(15.0));
                 });
-                ui.horizontal(|ui| {
+                egui::Grid::new("render_style_grid").show(ui, |ui| {
                     ui.radio_value(
                         &mut self.render_style,
                         RenderStyle::Iterations,
                         "Iterations",
                     );
-                    ui.add_space(20.0);
                     ui.radio_value(&mut self.render_style, RenderStyle::Arg, "Arg");
+                    ui.end_row();
+                    ui.radio_value(&mut self.render_style, RenderStyle::Distance, "Distance");
+                    ui.end_row();
                 });
                 ui.separator();
                 ui.vertical_centered(|ui| {
