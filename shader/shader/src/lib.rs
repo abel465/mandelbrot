@@ -1,12 +1,12 @@
 #![no_std]
 
-use core::f32::consts::PI;
+use core::f32::consts::{PI, TAU};
 use push_constants::shader::*;
 use shared::complex::Complex;
 use shared::*;
 use spirv_std::glam::*;
 #[cfg(target_arch = "spirv")]
-use spirv_std::num_traits::Float;
+use spirv_std::num_traits::real::Real;
 use spirv_std::spirv;
 
 mod palette;
@@ -21,6 +21,12 @@ pub fn smoothstep(edge0: f32, edge1: f32, x: f32) -> f32 {
     let x = ((x - edge0) / (edge1 - edge0)).clamp(0.0, 1.0);
     // Evaluate polynomial
     x * x * (3.0 - 2.0 * x)
+}
+
+// Given lerp(x, y, a) = 4, x < 4, y >= 4
+// Returns 'a' which is a value between 0 and 1
+fn get_lerp_factor(x: f32, y: f32) -> f32 {
+    (4.0 - x) / (y - x)
 }
 
 fn get_col(palette: Palette, x: f32) -> Vec3 {
@@ -57,8 +63,7 @@ pub fn main_fs(
         render_julia_set && frag_coord.xy().dot(n) > size.dot(n) * constants.render_split;
 
     let mut col = {
-        let num_iters = constants.num_iterations;
-        let (mut z, c): (Complex, Complex) = if is_julia {
+        let (z0, c): (Complex, Complex) = if is_julia {
             (
                 ((frag_coord.xy() - 0.5 * size) / size.y / constants.julia_camera_zoom
                     + constants.julia_camera_translate)
@@ -68,54 +73,9 @@ pub fn main_fs(
         } else {
             (Complex::ZERO, mandelbrot_uv.into())
         };
-        let mut i = 0;
-        let mut norm_squared;
-        loop {
-            z = z * z + c;
-            i += 1;
-            norm_squared = z.norm_squared();
-            if i >= num_iters as u32 {
-                break;
-            }
-            if norm_squared >= 4.0 {
-                break;
-            }
-        }
-        let smooth = constants.smooth_factor;
         match constants.render_style {
-            RenderStyle::Arg => {
-                if i >= num_iters as u32 {
-                    Vec3::ZERO
-                } else {
-                    let period = (1 << (constants.palette_period * 2.0) as u32) as f32 * 0.5;
-                    let t = constants.animate_time * PI;
-                    if i & 1 == 1 {
-                        z = z * z + c;
-                        let col = get_col(constants.palette, (z.arg() / PI) * period + t);
-                        col
-                    } else {
-                        let col = get_col(constants.palette, (z.arg() / PI) * period + t);
-                        z = z * z + c;
-                        z = z * z + c;
-                        let col2 = get_col(constants.palette, (z.arg() / PI) * period + t);
-                        let s = smoothstep(smooth * 10.0, 0.0, norm_squared - 4.0);
-                        col.lerp(col2, s)
-                    }
-                }
-            }
-            RenderStyle::Iterations => {
-                if i >= num_iters as u32
-                    && ((norm_squared - 4.0) * 0.1) < (1.0 - constants.num_iterations.fract())
-                {
-                    Vec3::ZERO
-                } else {
-                    let period = constants.palette_period;
-                    let t = constants.animate_time * 10.0;
-                    let x = smoothstep(smooth, 0.0, norm_squared - 4.0);
-                    let x = ((i as f32 + x) * period - t) * 0.1;
-                    get_col(constants.palette, x)
-                }
-            }
+            RenderStyle::Iterations => col_from_iterations(constants, z0, c),
+            RenderStyle::Arg => col_from_arg(constants, z0, c),
         }
     };
 
@@ -157,6 +117,53 @@ pub fn main_fs(
     }
 
     *output = col.extend(1.0);
+}
+
+fn col_from_iterations(constants: &FragmentConstants, mut z: Complex, c: Complex) -> Vec3 {
+    let num_iters = constants.num_iterations;
+    let mut i = 0;
+    let mut norm_sq = z.norm_squared();
+    let mut prev_norm_sq = 0.0;
+    while norm_sq < 4.0 && i < num_iters as u32 {
+        z = z * z + c;
+        i += 1;
+        prev_norm_sq = norm_sq;
+        norm_sq = z.norm_squared();
+    }
+    let h = get_lerp_factor(prev_norm_sq, norm_sq);
+    if norm_sq < 4.0 || i == num_iters as u32 && constants.num_iterations.fract() < h {
+        Vec3::ZERO
+    } else {
+        let period = constants.palette_period * 0.2;
+        let t = constants.animate_time;
+        let s = smoothstep(0.0, constants.smooth_factor, h);
+        let x = (i as f32 + s) * period - t;
+        get_col(constants.palette, x)
+    }
+}
+
+fn col_from_arg(constants: &FragmentConstants, mut z: Complex, c: Complex) -> Vec3 {
+    let num_iters = constants.num_iterations;
+    let mut i = 0;
+    let mut norm_squared = z.norm_squared();
+    let mut prev_z = Complex::ZERO;
+    while norm_squared < 4.0 && i < num_iters as u32 {
+        prev_z = z;
+        z = z * z + c;
+        i += 1;
+        norm_squared = z.norm_squared();
+    }
+    let h = get_lerp_factor(prev_z.norm_squared(), norm_squared);
+    if norm_squared < 4.0 || i == num_iters as u32 && constants.num_iterations.fract() < h {
+        Vec3::ZERO
+    } else {
+        let period = (1 << (constants.palette_period * 3.0) as u32) as f32 / TAU;
+        let t = constants.animate_time * PI;
+        let col = get_col(constants.palette, prev_z.arg() * period - t);
+        let col2 = get_col(constants.palette, z.arg() * period - t);
+        let s = smoothstep(0.0, constants.smooth_factor, h);
+        col.lerp(col2, s)
+    }
 }
 
 #[spirv(vertex)]
