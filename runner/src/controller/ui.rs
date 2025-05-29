@@ -46,6 +46,10 @@ impl Controller {
             stats.total_distance += prev_z.distance(z.0);
             norm_sq = z.norm_squared();
             stats.last_norm_sq = norm_sq;
+            if z.0 == prev_z.0 {
+                break;
+            }
+            self.iterations.points.push(z.0);
             if norm_sq >= 4.0 {
                 stats.count = i;
                 stats.last_distance = prev_z.distance(z.0);
@@ -62,10 +66,6 @@ impl Controller {
                 stats.last_distance = prev_z.distance(z.0);
                 stats.last_angle = z.arg();
             }
-            if z.0 == prev_z.0 {
-                break;
-            }
-            self.iterations.points.push(z.0);
         }
         self.iterations.stats = stats;
 
@@ -146,9 +146,18 @@ impl Controller {
                         RenderStyle::Iterations,
                         "Iterations",
                     );
-                    ui.radio_value(&mut self.render_style, RenderStyle::Arg, "Arg");
+                    ui.radio_value(
+                        &mut self.render_style,
+                        RenderStyle::TotalDistance,
+                        "Total Distance",
+                    );
                     ui.end_row();
-                    ui.radio_value(&mut self.render_style, RenderStyle::Distance, "Distance");
+                    ui.radio_value(&mut self.render_style, RenderStyle::Arg, "Arg");
+                    ui.radio_value(
+                        &mut self.render_style,
+                        RenderStyle::LastDistance,
+                        "Last Distance",
+                    );
                     ui.end_row();
                 });
                 ui.separator();
