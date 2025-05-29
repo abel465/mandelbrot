@@ -48,6 +48,17 @@ struct Camera {
     grabbing: bool,
 }
 
+#[derive(Clone, Copy, Default)]
+struct IterationStats {
+    last_norm_sq: f32,
+    last_distance: f32,
+    last_angle: f32,
+    total_angle: f32,
+    total_distance: f32,
+    proximity: f32, // normalized proximity to the next iteration
+    count: u32,
+}
+
 #[derive(Default)]
 struct Iterations {
     enabled: bool,
@@ -56,7 +67,7 @@ struct Iterations {
     points: Vec<Vec2>,
     points_buffer: Option<wgpu::Buffer>,
     recompute: bool,
-    norm_squared_value: f32,
+    stats: IterationStats,
 }
 
 struct RenderSplit {

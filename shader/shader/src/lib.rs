@@ -23,12 +23,6 @@ pub fn smoothstep(edge0: f32, edge1: f32, x: f32) -> f32 {
     x * x * (3.0 - 2.0 * x)
 }
 
-// Given lerp(x, y, a) = 4, x < 4, y >= 4
-// Returns 'a' which is a value between 0 and 1
-fn get_lerp_factor(x: f32, y: f32) -> f32 {
-    (4.0 - x) / (y - x)
-}
-
 fn get_col(palette: Palette, x: f32) -> Vec3 {
     match palette {
         Palette::A => palette::cola(x),

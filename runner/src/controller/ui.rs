@@ -1,7 +1,8 @@
 use super::Controller;
 use easy_shader_runner::{egui, UiState};
 use glam::*;
-use shared::push_constants::shader::*;
+use push_constants::shader::*;
+use shared::*;
 
 impl Controller {
     pub fn ui_impl(
@@ -33,28 +34,40 @@ impl Controller {
         self.iterations.points.clear();
         let c = Complex::from(self.iterations.marker);
         let mut z = Complex::ZERO;
-        let mut n2_container = None;
-        for _ in 0..self.num_iterations as u32 {
+        let mut stats = super::IterationStats::default();
+        let mut prev_z = Complex::new(-1.0, 0.0);
+        let mut prev_prev_z;
+        let mut norm_sq;
+        for i in 0..self.num_iterations as u32 {
+            prev_prev_z = prev_z;
+            prev_z = z;
             z = z * z + c;
-            let norm_squared = z.norm_squared();
-            if norm_squared >= 4.0 {
-                if n2_container.is_none() {
-                    n2_container = Some(norm_squared);
+            stats.total_angle += angle_between_three_points(prev_prev_z.0, prev_z.0, z.0);
+            stats.total_distance += prev_z.distance(z.0);
+            norm_sq = z.norm_squared();
+            stats.last_norm_sq = norm_sq;
+            if norm_sq >= 4.0 {
+                stats.count = i;
+                stats.last_distance = prev_z.distance(z.0);
+                stats.last_angle = z.arg();
+                stats.proximity = get_lerp_factor(prev_z.norm_squared(), norm_sq);
+                while norm_sq < 1e9 {
+                    z = z * z + c;
+                    norm_sq = z.norm_squared();
+                    self.iterations.points.push(z.0);
                 }
+                break;
             }
-            if self.iterations.points.last().is_some_and(|p| p == &z.0)
-                || z.x.abs() > 1e9
-                || z.y.abs() > 1e9
-            {
+            if i + 1 == self.num_iterations as u32 {
+                stats.last_distance = prev_z.distance(z.0);
+                stats.last_angle = z.arg();
+            }
+            if z.0 == prev_z.0 {
                 break;
             }
             self.iterations.points.push(z.0);
         }
-        if let Some(n2) = n2_container {
-            self.iterations.norm_squared_value = n2;
-        } else {
-            self.iterations.norm_squared_value = 0.0;
-        }
+        self.iterations.stats = stats;
 
         if self.iterations.points.len() > 0 {
             graphics_context.queue.write_buffer(
@@ -252,7 +265,7 @@ impl Controller {
                         ui.end_row();
                     }
 
-                    ui.label("Iterations");
+                    ui.label("Max Iterations");
                     ui.monospace(format!("{:.2}", self.num_iterations));
                     ui.end_row();
 
@@ -265,11 +278,53 @@ impl Controller {
                         ui.monospace(format!("{:+.6}", self.iterations.marker.y));
                         ui.end_row();
 
-                        ui.label("norm_squared");
-                        ui.monospace(format!("{:.4}", self.iterations.norm_squared_value));
+                        let cursor_uv = self.to_uv(self.cursor);
+                        ui.label("cursor X");
+                        ui.monospace(format!("{:+.6}", cursor_uv.x));
+                        ui.end_row();
+
+                        ui.label("cursor Y");
+                        ui.monospace(format!("{:+.6}", cursor_uv.y));
+                        ui.end_row();
+
+                        ui.label("last |z|²");
+                        ui.monospace(format!("{:.4}", self.iterations.stats.last_norm_sq));
+                        ui.end_row();
+
+                        ui.label("last angle");
+                        ui.monospace(format!("{:.4}", self.iterations.stats.last_angle));
+                        ui.end_row();
+
+                        ui.label("total angle");
+                        ui.monospace(format!("{:.4}", self.iterations.stats.total_angle));
+                        ui.end_row();
+
+                        ui.label("last distance");
+                        ui.monospace(format!("{:.4}", self.iterations.stats.last_distance));
+                        ui.end_row();
+
+                        ui.label("total distance");
+                        ui.monospace(format!("{:.4}", self.iterations.stats.total_distance));
+                        ui.end_row();
+
+                        ui.label("proximity");
+                        ui.monospace(format!("{:.4}", self.iterations.stats.proximity));
+                        ui.end_row();
+
+                        ui.label("iteration count");
+                        ui.monospace(format!("{:.2}", self.iterations.stats.count));
                         ui.end_row();
                     }
                 });
             });
     }
+}
+
+fn angle_between_three_points(a: Vec2, b: Vec2, c: Vec2) -> f32 {
+    fn _cross(a: Vec2, b: Vec2) -> f32 {
+        a.x * b.y - a.y * b.x
+    }
+    let ab = b - a;
+    let bc = c - b;
+    (_cross(ab, bc)).atan2(ab.dot(bc))
 }
