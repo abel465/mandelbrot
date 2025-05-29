@@ -227,17 +227,19 @@ impl Controller {
         } else {
             (Vec2::Y, egui::CursorIcon::ResizeVertical)
         };
-        (((self.cursor / self.size.as_vec2()).dot(n).abs() - self.render_split.value).abs() < 0.004)
+        (self.render_julia_set
+            && ((self.cursor / self.size.as_vec2()).dot(n).abs() - self.render_split.value).abs()
+                < 0.004)
             .then_some(icon)
     }
 
     fn can_grab_marker(&self) -> bool {
-        if (!self.iterations.enabled && !self.render_julia_set) || self.is_cursor_in_julia() {
-            return false;
-        }
-        self.cursor
-            .distance_squared(self.from_uv(self.iterations.marker))
-            < MARKER_RADIUS * MARKER_RADIUS
+        (self.iterations.enabled || self.render_julia_set)
+            && !self.is_cursor_in_julia()
+            && self
+                .cursor
+                .distance_squared(self.from_uv(self.iterations.marker))
+                < MARKER_RADIUS * MARKER_RADIUS
     }
 
     fn is_cursor_in_julia(&self) -> bool {
@@ -245,7 +247,7 @@ impl Controller {
         let cursor = self.cursor;
         let is_split_vertical = size.x > size.y;
         let n = if is_split_vertical { Vec2::X } else { Vec2::Y };
-        cursor.dot(n) > size.dot(n) * self.render_split.value
+        self.render_julia_set && cursor.dot(n) > size.dot(n) * self.render_split.value
     }
 
     fn camera(&mut self) -> &mut Camera {
