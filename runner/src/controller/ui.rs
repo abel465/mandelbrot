@@ -95,7 +95,7 @@ impl Controller {
 
     fn context_menu_window(&mut self, ctx: &egui::Context, pos: Vec2) {
         let r = egui::Window::new("right_click_menu")
-            .frame(egui::Frame::NONE)
+            .frame(egui::Frame::none())
             .title_bar(false)
             .resizable(false)
             .fixed_pos(egui::pos2(pos.x, pos.y))
