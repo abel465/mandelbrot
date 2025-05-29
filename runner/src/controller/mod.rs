@@ -59,7 +59,6 @@ struct IterationStats {
     count: u32,
 }
 
-#[derive(Default)]
 struct Iterations {
     enabled: bool,
     dragging: bool,
@@ -68,6 +67,20 @@ struct Iterations {
     points_buffer: Option<wgpu::Buffer>,
     recompute: bool,
     stats: IterationStats,
+}
+
+impl Default for Iterations {
+    fn default() -> Self {
+        Iterations {
+            enabled: true,
+            dragging: false,
+            marker: vec2(-0.767294, -0.169140),
+            points: vec![],
+            points_buffer: None,
+            recompute: true,
+            stats: IterationStats::default(),
+        }
+    }
 }
 
 struct RenderSplit {
@@ -119,7 +132,7 @@ struct Animate {
 impl Default for Animate {
     fn default() -> Self {
         Self {
-            enable: false,
+            enable: true,
             value: 0.0,
             last_instant: Instant::now(),
             speed: 0.1,
@@ -180,10 +193,7 @@ impl Controller {
             ),
             cameras,
             debug: options.debug,
-            iterations: Iterations {
-                marker: vec2(-0.767294, -0.169140),
-                ..Default::default()
-            },
+            iterations: Iterations::default(),
             context_menu: None,
             render_julia_set: true,
             render_split: RenderSplit::default(),

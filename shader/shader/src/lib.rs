@@ -183,11 +183,11 @@ fn col_from_last_distance(constants: &FragmentConstants, mut z: Complex, c: Comp
     } else {
         let period = constants.palette_period;
         let t = constants.animate_time;
-        let s = smoothstep(0.0, constants.smooth_factor, h);
         let prev_dist = prev_dist_sq.sqrt();
         let dist = dist_sq.sqrt();
-        let col = get_col(constants.palette, prev_dist * period - t);
-        let col2 = get_col(constants.palette, dist * period - t);
+        let col = get_col(constants.palette, prev_dist * period + t);
+        let col2 = get_col(constants.palette, dist * period + t);
+        let s = smoothstep(0.0, constants.smooth_factor, h);
         col.lerp(col2, s)
     }
 }
@@ -213,8 +213,8 @@ fn col_from_total_distance(constants: &FragmentConstants, mut z: Complex, c: Com
     } else {
         let period = constants.palette_period;
         let t = constants.animate_time;
-        let col = get_col(constants.palette, prev_dist * period - t);
-        let col2 = get_col(constants.palette, dist * period - t);
+        let col = get_col(constants.palette, prev_dist * period + t);
+        let col2 = get_col(constants.palette, dist * period + t);
         let s = smoothstep(0.0, constants.smooth_factor, h);
         col.lerp(col2, s)
     }
