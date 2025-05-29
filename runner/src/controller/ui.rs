@@ -224,67 +224,79 @@ impl Controller {
             .title_bar(false)
             .resizable(false)
             .show(ctx, |ui| {
+                ui.collapsing("Camera", |ui| {
+                    egui::Grid::new("debug_camera_grid").show(ui, |ui| {
+                        {
+                            let camera = &self.cameras.mandelbrot;
+                            ui.label("Mandelbrot Zoom");
+                            let zoom = camera.zoom;
+                            if zoom < 1000.0 {
+                                ui.monospace(format!("{:.2}x", zoom));
+                            } else {
+                                ui.monospace(format!("{:.1}x", zoom));
+                            }
+                            ui.end_row();
+
+                            ui.label("Mandelbrot X");
+                            ui.monospace(format!("{:+.6}", camera.translate.x));
+                            ui.end_row();
+
+                            ui.label("Mandelbrot Y");
+                            ui.monospace(format!("{:+.6}", camera.translate.y));
+                            ui.end_row();
+                        }
+
+                        {
+                            let camera = &self.cameras.julia;
+                            ui.label("Julia Zoom");
+                            let zoom = self.cameras.julia.zoom;
+                            if zoom < 1000.0 {
+                                ui.monospace(format!("{:.2}x", zoom));
+                            } else {
+                                ui.monospace(format!("{:.1}x", zoom));
+                            }
+                            ui.end_row();
+
+                            ui.label("Julia X");
+                            ui.monospace(format!("{:+.6}", camera.translate.x));
+                            ui.end_row();
+
+                            ui.label("Julia Y");
+                            ui.monospace(format!("{:+.6}", camera.translate.y));
+                            ui.end_row();
+                        }
+
+                        {
+                            let cursor_uv = self.to_uv(self.cursor);
+                            ui.label("cursor X");
+                            ui.monospace(format!("{:+.6}", cursor_uv.x));
+                            ui.end_row();
+
+                            ui.label("cursor Y");
+                            ui.monospace(format!("{:+.6}", cursor_uv.y));
+                            ui.end_row();
+                        }
+
+                        if self.iterations.enabled || self.render_julia_set {
+                            ui.label("marker X");
+                            ui.monospace(format!("{:+.6}", self.iterations.marker.x));
+                            ui.end_row();
+
+                            ui.label("marker Y");
+                            ui.monospace(format!("{:+.6}", self.iterations.marker.y));
+                            ui.end_row();
+                        }
+                    });
+                });
+
                 egui::Grid::new("debug_grid").show(ui, |ui| {
-                    {
-                        let camera = &self.cameras.mandelbrot;
-                        ui.label("Mandelbrot Zoom");
-                        let zoom = camera.zoom;
-                        if zoom < 1000.0 {
-                            ui.monospace(format!("{:.2}x", zoom));
-                        } else {
-                            ui.monospace(format!("{:.1}x", zoom));
-                        }
-                        ui.end_row();
-
-                        ui.label("Mandelbrot X");
-                        ui.monospace(format!("{:+.6}", camera.translate.x));
-                        ui.end_row();
-
-                        ui.label("Mandelbrot Y");
-                        ui.monospace(format!("{:+.6}", camera.translate.y));
-                        ui.end_row();
-                    }
-
-                    {
-                        let camera = &self.cameras.julia;
-                        ui.label("Julia Zoom");
-                        let zoom = self.cameras.julia.zoom;
-                        if zoom < 1000.0 {
-                            ui.monospace(format!("{:.2}x", zoom));
-                        } else {
-                            ui.monospace(format!("{:.1}x", zoom));
-                        }
-                        ui.end_row();
-
-                        ui.label("Julia X");
-                        ui.monospace(format!("{:+.6}", camera.translate.x));
-                        ui.end_row();
-
-                        ui.label("Julia Y");
-                        ui.monospace(format!("{:+.6}", camera.translate.y));
-                        ui.end_row();
-                    }
-
-                    ui.label("Max Iterations");
+                    ui.label("max iterations");
                     ui.monospace(format!("{:.2}", self.num_iterations));
                     ui.end_row();
 
-                    if self.iterations.enabled || self.render_julia_set {
-                        ui.label("marker X");
-                        ui.monospace(format!("{:+.6}", self.iterations.marker.x));
-                        ui.end_row();
-
-                        ui.label("marker Y");
-                        ui.monospace(format!("{:+.6}", self.iterations.marker.y));
-                        ui.end_row();
-
-                        let cursor_uv = self.to_uv(self.cursor);
-                        ui.label("cursor X");
-                        ui.monospace(format!("{:+.6}", cursor_uv.x));
-                        ui.end_row();
-
-                        ui.label("cursor Y");
-                        ui.monospace(format!("{:+.6}", cursor_uv.y));
+                    if self.iterations.enabled {
+                        ui.label("num iterations");
+                        ui.monospace(format!("{:.2}", self.iterations.stats.count));
                         ui.end_row();
 
                         ui.label("last |z|²");
@@ -309,10 +321,6 @@ impl Controller {
 
                         ui.label("proximity");
                         ui.monospace(format!("{:.4}", self.iterations.stats.proximity));
-                        ui.end_row();
-
-                        ui.label("iteration count");
-                        ui.monospace(format!("{:.2}", self.iterations.stats.count));
                         ui.end_row();
                     }
                 });
