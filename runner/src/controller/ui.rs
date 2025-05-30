@@ -8,13 +8,17 @@ impl Controller {
     pub fn ui_impl(
         &mut self,
         ctx: &egui::Context,
-        ui_state: &UiState,
+        ui_state: &mut UiState,
         graphics_context: &easy_shader_runner::GraphicsContext,
     ) {
         if let Some(pos) = self.context_menu {
             self.context_menu_window(ctx, pos);
         }
-        self.main_window(ctx);
+        self.main_window(
+            ctx,
+            #[cfg(not(target_arch = "wasm32"))]
+            ui_state,
+        );
         self.handle_cursor_icon(ctx);
 
         if self.iterations.recompute {
@@ -114,7 +118,11 @@ impl Controller {
         }
     }
 
-    fn main_window(&mut self, ctx: &egui::Context) {
+    fn main_window(
+        &mut self,
+        ctx: &egui::Context,
+        #[cfg(not(target_arch = "wasm32"))] ui_state: &mut UiState,
+    ) {
         let width = 120.0;
         egui::Window::new("ui")
             .min_width(width)
@@ -212,7 +220,9 @@ impl Controller {
                 ui.horizontal(|ui| {
                     ui.checkbox(&mut self.debug, "Debug");
                     ui.add_space(12.0);
-                    ui.checkbox(&mut self.show_fps, "Show FPS");
+                    ui.checkbox(&mut self.show_fps, "FPS");
+                    #[cfg(not(target_arch = "wasm32"))]
+                    ui.checkbox(&mut ui_state.vsync, "VSync");
                 });
             });
     }
@@ -224,7 +234,7 @@ impl Controller {
             .interactable(false)
             .anchor(egui::Align2::RIGHT_BOTTOM, egui::Vec2::splat(-10.0))
             .show(ctx, |ui| {
-                ui.label(format!("FPS: {}", ui_state.fps));
+                ui.label(format!("FPS: {}", ui_state.fps()));
             });
     }
 
