@@ -9,7 +9,10 @@ fn build_shader(path_to_crate: &str) {
     if env::var("CARGO_CFG_TARGET_ARCH").unwrap() == "wasm32" {
         builder = builder.shader_crate_features(["emulate_constants".into()]);
     }
-    builder.build().unwrap();
+    let compile_result = builder.build().unwrap();
+    let shader_path = std::fs::canonicalize(compile_result.module.unwrap_single()).unwrap();
+    let file_name = shader_path.file_name().unwrap().to_str().unwrap();
+    println!("cargo::rustc-env={}={}", file_name, shader_path.display());
 }
 
 fn main() {

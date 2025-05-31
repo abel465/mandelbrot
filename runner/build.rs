@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=../builder/");
     println!("cargo:rerun-if-env-changed=CARGO_CFG_TARGET_ARCH");
     let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
     if cfg!(any(
@@ -30,7 +31,7 @@ fn main() {
     // `spirv-builder` generates in a similar way from `$OUT_DIR` and `$PROFILE`,
     // otherwise repeated `cargo build`s will cause build script reruns and the
     // rebuilding of `rustc_codegen_spirv` (likely due to common proc macro deps).
-    let dir = dir.join("../builder");
+    let dir = dir.join("builder");
     let status = std::process::Command::new("cargo")
         .args(["run", "--release", "-p", "builder"])
         .arg("--target-dir")
