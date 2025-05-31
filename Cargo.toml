@@ -19,15 +19,15 @@ glam = { version = "0.29.3", default-features = false }
 
 [workspace.dependencies.spirv-std]
 git = "https://github.com/Rust-GPU/rust-gpu"
-rev = "175c175cd8a25722f284010fd9c7b70725449956"
+rev = "86fc48032c4cd4afb74f1d81ae859711d20386a1"
 
 [workspace.dependencies.spirv-builder]
 git = "https://github.com/Rust-GPU/rust-gpu"
-rev = "175c175cd8a25722f284010fd9c7b70725449956"
+rev = "86fc48032c4cd4afb74f1d81ae859711d20386a1"
 
 [workspace.dependencies.easy-shader-runner]
 git = "https://github.com/abel465/easy-shader-runner"
-rev = "65ee7a3bae518e7562e88985f848fb9850fe8b9a"
+rev = "aeaa8ca52649338384d9405a0a1b9c073a5509f3"
 default-features = false
 
 [profile.dev]
