@@ -34,6 +34,36 @@ fn get_col(palette: Palette, x: f32) -> Vec3 {
     }
 }
 
+struct MandelbrotResult {
+    inside: bool,
+    i: u32,
+    s: f32,
+}
+
+fn iterate_mandelbrot<F: FnMut(Complex)>(
+    constants: &FragmentConstants,
+    mut z: Complex,
+    c: Complex,
+    mut f: F,
+) -> MandelbrotResult {
+    let num_iters = constants.num_iterations as u32;
+    let mut i = 0;
+    let mut prev_norm_sq = 0.0;
+    let mut norm_sq = z.norm_squared();
+    while norm_sq < 4.0 && i < num_iters {
+        z = z * z + c;
+        prev_norm_sq = norm_sq;
+        norm_sq = z.norm_squared();
+        i += 1;
+        f(z);
+    }
+    let h = get_lerp_factor(prev_norm_sq, norm_sq);
+    let inside = norm_sq < 4.0
+        || i == constants.num_iterations as u32 && constants.num_iterations.fract() < h;
+    let s = smoothstep(0.0, constants.smooth_factor, h);
+    MandelbrotResult { inside, i, s }
+}
+
 #[spirv(fragment)]
 pub fn main_fs(
     #[spirv(frag_coord)] frag_coord: Vec4,
@@ -114,80 +144,52 @@ pub fn main_fs(
     *output = col.extend(1.0);
 }
 
-fn col_from_iterations(constants: &FragmentConstants, mut z: Complex, c: Complex) -> Vec3 {
-    let num_iters = constants.num_iterations;
-    let mut i = 0;
-    let mut norm_sq = z.norm_squared();
-    let mut prev_norm_sq = 0.0;
-    while norm_sq < 4.0 && i < num_iters as u32 {
-        z = z * z + c;
-        i += 1;
-        prev_norm_sq = norm_sq;
-        norm_sq = z.norm_squared();
-    }
-    let h = get_lerp_factor(prev_norm_sq, norm_sq);
-    if norm_sq < 4.0 || i == num_iters as u32 && constants.num_iterations.fract() < h {
+fn col_from_iterations(constants: &FragmentConstants, z0: Complex, c: Complex) -> Vec3 {
+    let mandelbrot = iterate_mandelbrot(constants, z0, c, |_| {});
+    if mandelbrot.inside {
         Vec3::ZERO
     } else {
         let period = constants.palette_period * 0.2;
         let t = constants.animate_time;
-        let s = smoothstep(0.0, constants.smooth_factor, h);
-        let x = (i as f32 + s) * period - t;
+        let x = (mandelbrot.i as f32 + mandelbrot.s) * period - t;
         get_col(constants.palette, x)
     }
 }
 
-fn col_from_arg(constants: &FragmentConstants, mut z: Complex, c: Complex) -> Vec3 {
-    let num_iters = constants.num_iterations;
-    let mut i = 0;
-    let mut norm_sq = z.norm_squared();
-    let mut prev_z = Complex::ZERO;
-    while norm_sq < 4.0 && i < num_iters as u32 {
-        prev_z = z;
-        z = z * z + c;
-        i += 1;
-        norm_sq = z.norm_squared();
-    }
-    let h = get_lerp_factor(prev_z.norm_squared(), norm_sq);
-    if norm_sq < 4.0 || i == num_iters as u32 && constants.num_iterations.fract() < h {
+fn col_from_arg(constants: &FragmentConstants, z0: Complex, c: Complex) -> Vec3 {
+    let mut zs = [Complex::ZERO, z0];
+    let mandelbrot = iterate_mandelbrot(constants, z0, c, |z| {
+        zs[0] = zs[1];
+        zs[1] = z;
+    });
+    if mandelbrot.inside {
         Vec3::ZERO
     } else {
         let period = (1 << (constants.palette_period * 3.0) as u32) as f32 / TAU;
         let t = constants.animate_time * PI;
-        let col = get_col(constants.palette, prev_z.arg() * period - t);
-        let col2 = get_col(constants.palette, z.arg() * period - t);
-        let s = smoothstep(0.0, constants.smooth_factor, h);
-        col.lerp(col2, s)
+        let col0 = get_col(constants.palette, zs[0].arg() * period - t);
+        let col1 = get_col(constants.palette, zs[1].arg() * period - t);
+        col0.lerp(col1, mandelbrot.s)
     }
 }
 
-fn col_from_last_distance(constants: &FragmentConstants, mut z: Complex, c: Complex) -> Vec3 {
-    let num_iters = constants.num_iterations;
-    let mut i = 0;
-    let mut dist_sq = 0.0;
-    let mut prev_dist_sq = 0.0;
-    let mut norm_sq = z.norm_squared();
-    let mut prev_z = Complex::ZERO;
-    while norm_sq < 4.0 && i < num_iters as u32 {
-        prev_z = z;
-        z = z * z + c;
-        prev_dist_sq = dist_sq;
-        dist_sq = prev_z.distance_squared(z.0);
-        i += 1;
-        norm_sq = z.norm_squared();
-    }
-    let h = get_lerp_factor(prev_z.norm_squared(), norm_sq);
-    if norm_sq < 4.0 || i == num_iters as u32 && constants.num_iterations.fract() < h {
+fn col_from_last_distance(constants: &FragmentConstants, z0: Complex, c: Complex) -> Vec3 {
+    let mut zs = [Complex::ZERO, Complex::ZERO, z0];
+    let mandelbrot = iterate_mandelbrot(constants, z0, c, |z| {
+        zs[0] = zs[1];
+        zs[1] = zs[2];
+        zs[2] = z;
+    });
+    if mandelbrot.inside {
         Vec3::ZERO
     } else {
         let period = constants.palette_period;
         let t = constants.animate_time;
-        let prev_dist = prev_dist_sq.sqrt();
-        let dist = dist_sq.sqrt();
-        let col = get_col(constants.palette, prev_dist * period + t);
-        let col2 = get_col(constants.palette, dist * period + t);
-        let s = smoothstep(0.0, constants.smooth_factor, h);
-        col.lerp(col2, s)
+        let ds0 = zs[0].distance(zs[1].0);
+        let ds1 = zs[1].distance(zs[2].0);
+        let col0 = get_col(constants.palette, ds0 * period + t);
+        let col1 = get_col(constants.palette, ds1 * period + t);
+        col0.lerp(col1, mandelbrot.s)
     }
 }
 
