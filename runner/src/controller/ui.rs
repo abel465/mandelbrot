@@ -156,16 +156,11 @@ impl Controller {
                     );
                     ui.radio_value(
                         &mut self.render_style,
-                        RenderStyle::TotalDistance,
-                        "Total Distance",
-                    );
-                    ui.end_row();
-                    ui.radio_value(&mut self.render_style, RenderStyle::Arg, "Arg");
-                    ui.radio_value(
-                        &mut self.render_style,
                         RenderStyle::LastDistance,
                         "Last Distance",
                     );
+                    ui.end_row();
+                    ui.radio_value(&mut self.render_style, RenderStyle::Arg, "Arg");
                     ui.end_row();
                 });
                 ui.separator();

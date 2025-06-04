@@ -71,7 +71,6 @@ pub fn main_fs(
             RenderStyle::Iterations => col_from_iterations(constants, z0, c),
             RenderStyle::Arg => col_from_arg(constants, z0, c),
             RenderStyle::LastDistance => col_from_last_distance(constants, z0, c),
-            RenderStyle::TotalDistance => col_from_total_distance(constants, z0, c),
         }
     };
 
@@ -185,34 +184,6 @@ fn col_from_last_distance(constants: &FragmentConstants, mut z: Complex, c: Comp
         let t = constants.animate_time;
         let prev_dist = prev_dist_sq.sqrt();
         let dist = dist_sq.sqrt();
-        let col = get_col(constants.palette, prev_dist * period + t);
-        let col2 = get_col(constants.palette, dist * period + t);
-        let s = smoothstep(0.0, constants.smooth_factor, h);
-        col.lerp(col2, s)
-    }
-}
-
-fn col_from_total_distance(constants: &FragmentConstants, mut z: Complex, c: Complex) -> Vec3 {
-    let num_iters = constants.num_iterations;
-    let mut i = 0;
-    let mut dist = 0.0;
-    let mut prev_dist = 0.0;
-    let mut norm_sq = z.norm_squared();
-    let mut prev_z = Complex::ZERO;
-    while norm_sq < 4.0 && i < num_iters as u32 {
-        prev_z = z;
-        z = z * z + c;
-        prev_dist = dist;
-        dist += prev_z.distance(z.0);
-        i += 1;
-        norm_sq = z.norm_squared();
-    }
-    let h = get_lerp_factor(prev_z.norm_squared(), norm_sq);
-    if norm_sq < 4.0 || i == num_iters as u32 && constants.num_iterations.fract() < h {
-        Vec3::ZERO
-    } else {
-        let period = constants.palette_period;
-        let t = constants.animate_time;
         let col = get_col(constants.palette, prev_dist * period + t);
         let col2 = get_col(constants.palette, dist * period + t);
         let s = smoothstep(0.0, constants.smooth_factor, h);

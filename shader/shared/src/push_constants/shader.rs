@@ -8,7 +8,6 @@ pub enum RenderStyle {
     Iterations,
     Arg,
     LastDistance,
-    TotalDistance,
 }
 
 #[derive(Copy, Clone, Debug, NoUninit, Default, PartialEq)]
