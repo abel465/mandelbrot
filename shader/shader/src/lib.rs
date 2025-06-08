@@ -34,34 +34,102 @@ fn get_col(palette: Palette, x: f32) -> Vec3 {
     }
 }
 
+trait Mandelbrot {
+    fn z0(&self) -> Complex;
+    fn iterate<F: FnMut(Complex)>(self, constants: &FragmentConstants, f: F) -> MandelbrotResult;
+}
+
 struct MandelbrotResult {
     inside: bool,
     i: u32,
     s: f32,
 }
 
-fn iterate_mandelbrot<F: FnMut(Complex)>(
-    constants: &FragmentConstants,
-    mut z: Complex,
+struct RegularMandelbrot {
+    z0: Complex,
     c: Complex,
-    mut f: F,
-) -> MandelbrotResult {
-    let num_iters = constants.num_iterations as u32;
-    let mut i = 0;
-    let mut prev_norm_sq = 0.0;
-    let mut norm_sq = z.norm_squared();
-    while norm_sq < 4.0 && i < num_iters {
-        z = z * z + c;
-        prev_norm_sq = norm_sq;
-        norm_sq = z.norm_squared();
-        i += 1;
-        f(z);
+}
+
+impl Mandelbrot for RegularMandelbrot {
+    fn z0(&self) -> Complex {
+        self.z0
     }
-    let h = get_lerp_factor(prev_norm_sq, norm_sq);
-    let inside = norm_sq < 4.0
-        || i == constants.num_iterations as u32 && constants.num_iterations.fract() < h;
-    let s = smoothstep(0.0, constants.smooth_factor, h);
-    MandelbrotResult { inside, i, s }
+
+    fn iterate<F: FnMut(Complex)>(
+        self,
+        constants: &FragmentConstants,
+        mut f: F,
+    ) -> MandelbrotResult {
+        let RegularMandelbrot { z0: mut z, c } = self;
+        let num_iters = constants.num_iterations as u32;
+        let mut i = 0;
+        let mut prev_norm_sq = 0.0;
+        let mut norm_sq = z.norm_squared();
+        while norm_sq < 4.0 && i < num_iters {
+            z = z * z + c;
+            prev_norm_sq = norm_sq;
+            norm_sq = z.norm_squared();
+            i += 1;
+            f(z);
+        }
+
+        let h = get_lerp_factor(prev_norm_sq, norm_sq);
+        let inside = norm_sq < 4.0 || i == num_iters && constants.num_iterations.fract() < h;
+        let s = smoothstep(0.0, constants.smooth_factor, h);
+        MandelbrotResult { inside, i, s }
+    }
+}
+
+struct PerturbedMandelbrot<'a> {
+    z0: Complex,
+    dz: Complex,
+    dc: Complex,
+    reference_points: &'a [Complex],
+    num_ref_iterations: usize,
+}
+
+impl Mandelbrot for PerturbedMandelbrot<'_> {
+    fn z0(&self) -> Complex {
+        self.z0
+    }
+
+    fn iterate<F: FnMut(Complex)>(
+        self,
+        constants: &FragmentConstants,
+        mut f: F,
+    ) -> MandelbrotResult {
+        let PerturbedMandelbrot {
+            z0,
+            mut dz,
+            dc,
+            reference_points,
+            num_ref_iterations,
+        } = self;
+        let num_iters = constants.num_iterations as u32;
+        let mut i = 0;
+        let mut prev_norm_sq = 0.0;
+        let mut norm_sq = z0.norm_squared();
+        let mut ref_i = 0;
+
+        while norm_sq < 4.0 && i < num_iters {
+            dz = 2.0 * reference_points[ref_i] * dz + dz * dz + dc;
+            ref_i += 1;
+            let z = reference_points[ref_i] + dz;
+            prev_norm_sq = norm_sq;
+            norm_sq = z.norm_squared();
+            i += 1;
+            f(z);
+            if norm_sq < dz.norm_squared() || ref_i >= num_ref_iterations {
+                dz = z;
+                ref_i = 0;
+            }
+        }
+
+        let h = get_lerp_factor(prev_norm_sq, norm_sq);
+        let inside = norm_sq < 4.0 || i == num_iters && constants.num_iterations.fract() < h;
+        let s = smoothstep(0.0, constants.smooth_factor, h);
+        MandelbrotResult { inside, i, s }
+    }
 }
 
 #[spirv(fragment)]
@@ -71,9 +139,11 @@ pub fn main_fs(
     #[spirv(push_constant)]
     constants: &FragmentConstants,
     #[cfg(feature = "emulate_constants")]
-    #[spirv(storage_buffer, descriptor_set = 1, binding = 0)]
+    #[spirv(storage_buffer, descriptor_set = 2, binding = 0)]
     constants: &FragmentConstants,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] iteration_points: &[Vec2],
+    #[spirv(storage_buffer, descriptor_set = 1, binding = 0)]
+    mandelbrot_reference_points: &[Complex],
     output: &mut Vec4,
 ) {
     let size = constants.size.as_vec2();
@@ -86,21 +156,30 @@ pub fn main_fs(
     let is_julia =
         render_julia_set && frag_coord.xy().dot(n) > size.dot(n) * constants.render_split;
 
-    let mut col = {
-        let (z0, c): (Complex, Complex) = if is_julia {
-            (
-                ((frag_coord.xy() - 0.5 * size) / size.y / constants.julia_camera_zoom
-                    + constants.julia_camera_translate)
-                    .into(),
-                constants.marker.into(),
-            )
-        } else {
-            (Complex::ZERO, mandelbrot_uv.into())
+    let mut col = if is_julia {
+        let z0 = ((frag_coord.xy() - 0.5 * size) / size.y / constants.julia_camera_zoom
+            + constants.julia_camera_translate)
+            .into();
+        let c: Complex = constants.marker.into();
+        let mandelbrot_input = RegularMandelbrot { z0, c };
+        match constants.render_style {
+            RenderStyle::Iterations => col_from_iterations(constants, mandelbrot_input),
+            RenderStyle::Arg => col_from_arg(constants, mandelbrot_input),
+            RenderStyle::LastDistance => col_from_last_distance(constants, mandelbrot_input),
+        }
+    } else {
+        let dc = ((frag_coord.xy() - 0.5 * size) / size.y / mandelbrot_zoom).into();
+        let mandelbrot_input = PerturbedMandelbrot {
+            z0: Complex::ZERO,
+            dz: Complex::ZERO,
+            dc,
+            reference_points: mandelbrot_reference_points,
+            num_ref_iterations: constants.mandelbrot_num_ref_iterations as usize,
         };
         match constants.render_style {
-            RenderStyle::Iterations => col_from_iterations(constants, z0, c),
-            RenderStyle::Arg => col_from_arg(constants, z0, c),
-            RenderStyle::LastDistance => col_from_last_distance(constants, z0, c),
+            RenderStyle::Iterations => col_from_iterations(constants, mandelbrot_input),
+            RenderStyle::Arg => col_from_arg(constants, mandelbrot_input),
+            RenderStyle::LastDistance => col_from_last_distance(constants, mandelbrot_input),
         }
     };
 
@@ -129,10 +208,10 @@ pub fn main_fs(
         // Marker
         {
             let d = sdf::disk(
-                mandelbrot_uv - constants.marker,
-                MARKER_RADIUS / mandelbrot_zoom / size.y,
+                frag_coord.xy() - constants.marker_screen_space,
+                MARKER_RADIUS,
             );
-            let intensity = smoothstep(3.0 / mandelbrot_zoom / size.y, 0.0, d.abs());
+            let intensity = smoothstep(3.0, 0.0, d.abs());
             if d < 0.0 {
                 col = Vec3::splat(intensity);
             } else {
@@ -144,8 +223,8 @@ pub fn main_fs(
     *output = col.extend(1.0);
 }
 
-fn col_from_iterations(constants: &FragmentConstants, z0: Complex, c: Complex) -> Vec3 {
-    let mandelbrot = iterate_mandelbrot(constants, z0, c, |_| {});
+fn col_from_iterations<T: Mandelbrot>(constants: &FragmentConstants, mandelbrot_input: T) -> Vec3 {
+    let mandelbrot = mandelbrot_input.iterate(constants, |_| {});
     if mandelbrot.inside {
         Vec3::ZERO
     } else {
@@ -156,9 +235,9 @@ fn col_from_iterations(constants: &FragmentConstants, z0: Complex, c: Complex) -
     }
 }
 
-fn col_from_arg(constants: &FragmentConstants, z0: Complex, c: Complex) -> Vec3 {
-    let mut zs = [Complex::ZERO, z0];
-    let mandelbrot = iterate_mandelbrot(constants, z0, c, |z| {
+fn col_from_arg<T: Mandelbrot>(constants: &FragmentConstants, mandelbrot_input: T) -> Vec3 {
+    let mut zs = [Complex::ZERO, mandelbrot_input.z0()];
+    let mandelbrot = mandelbrot_input.iterate(constants, |z| {
         zs[0] = zs[1];
         zs[1] = z;
     });
@@ -173,9 +252,12 @@ fn col_from_arg(constants: &FragmentConstants, z0: Complex, c: Complex) -> Vec3 
     }
 }
 
-fn col_from_last_distance(constants: &FragmentConstants, z0: Complex, c: Complex) -> Vec3 {
-    let mut zs = [Complex::ZERO, Complex::ZERO, z0];
-    let mandelbrot = iterate_mandelbrot(constants, z0, c, |z| {
+fn col_from_last_distance<T: Mandelbrot>(
+    constants: &FragmentConstants,
+    mandelbrot_input: T,
+) -> Vec3 {
+    let mut zs = [Complex::ZERO, Complex::ZERO, mandelbrot_input.z0()];
+    let mandelbrot = mandelbrot_input.iterate(constants, |z| {
         zs[0] = zs[1];
         zs[1] = zs[2];
         zs[2] = z;

@@ -31,6 +31,7 @@ pub struct FragmentConstants {
     pub julia_camera_translate: Vec2,
     pub size: Size,
     pub marker: Vec2,
+    pub marker_screen_space: Vec2,
     pub time: f32,
     pub mandelbrot_camera_zoom: f32,
     pub julia_camera_zoom: f32,
@@ -44,5 +45,5 @@ pub struct FragmentConstants {
     pub animate_time: f32,
     pub palette_period: f32,
     pub render_style: RenderStyle,
-    pub padding: u32,
+    pub mandelbrot_num_ref_iterations: u32,
 }

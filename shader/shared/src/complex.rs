@@ -1,6 +1,6 @@
 use core::convert::From;
 use core::ops::*;
-use spirv_std::glam::Vec2;
+use spirv_std::glam::*;
 #[cfg_attr(not(target_arch = "spirv"), allow(unused_imports))]
 use spirv_std::num_traits::Float;
 
@@ -69,6 +69,12 @@ impl Complex {
 impl From<Vec2> for Complex {
     fn from(value: Vec2) -> Self {
         Complex(value)
+    }
+}
+
+impl From<DVec2> for Complex {
+    fn from(value: DVec2) -> Self {
+        Complex(value.as_vec2())
     }
 }
 
@@ -183,22 +189,32 @@ impl Neg for Complex {
     }
 }
 
-// #[cfg(not(target_arch = "spirv"))]
-// impl std::fmt::Display for Complex {
-//     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-//         if self.y == 0.0 {
-//             write!(f, "{}", self.x)
-//         } else if self.y < 0.0 {
-//             write!(f, "{} - {}i", self.x, -self.y)
-//         } else {
-//             write!(f, "{} + {}i", self.x, self.y)
-//         }
-//     }
-// }
-//
-// #[cfg(not(target_arch = "spirv"))]
-// impl std::fmt::Debug for Complex {
-//     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-//         write!(f, "Complex({}, {})", self.x, self.y)
-//     }
-// }
+#[cfg(not(target_arch = "spirv"))]
+impl std::fmt::Display for Complex {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        if self.y == 0.0 {
+            self.x.fmt(f)
+        } else if self.y < 0.0 {
+            self.x.fmt(f)?;
+            write!(f, " - ")?;
+            (-self.y).fmt(f)?;
+            write!(f, "i")
+        } else {
+            self.x.fmt(f)?;
+            write!(f, " + ")?;
+            self.y.fmt(f)?;
+            write!(f, "i")
+        }
+    }
+}
+
+#[cfg(not(target_arch = "spirv"))]
+impl std::fmt::Debug for Complex {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Complex(")?;
+        self.x.fmt(f)?;
+        write!(f, ", ")?;
+        self.y.fmt(f)?;
+        write!(f, ")")
+    }
+}

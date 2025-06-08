@@ -1,7 +1,11 @@
+#![allow(clippy::single_match)]
+
 use structopt::StructOpt;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen_futures::wasm_bindgen::{self, prelude::*};
 
+mod big_complex;
+mod big_vec2;
 mod controller;
 
 #[derive(StructOpt, Clone, Copy)]

@@ -22,6 +22,7 @@ structopt = { version = "0.3.26", default-features = false }
 bytemuck = { workspace = true }
 glam = { workspace = true }
 web-time = "1.1.0"
+dashu = "0.4.2"
 
 [target.'cfg(not(any(target_arch = "wasm32")))'.dependencies]
 easy-shader-runner = { workspace = true, default-features = false }

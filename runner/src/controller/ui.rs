@@ -30,13 +30,50 @@ impl Controller {
         if self.debug {
             self.debug_window(ctx);
         }
+        if self.mandelbrot_reference.recompute {
+            self.recompute_reference_iterations(graphics_context);
+        }
+    }
+
+    fn recompute_reference_iterations(
+        &mut self,
+        graphics_context: &easy_shader_runner::GraphicsContext,
+    ) {
+        use crate::big_complex::Complex;
+        const FOUR: dashu::float::FBig = dashu::fbig!(100);
+
+        self.mandelbrot_reference.points.clear();
+        let c: Complex = self.cameras.mandelbrot.translate.clone().into();
+        let mut z = Complex::ZERO.with_precision(128);
+        let mut i = 0;
+        while i < self.num_iterations as u32 {
+            self.mandelbrot_reference.points.push(z.as_vec2());
+            i += 1;
+            z = z.square() + c.clone();
+            let norm_sq = z.norm_squared();
+            if norm_sq >= FOUR {
+                break;
+            }
+        }
+        self.mandelbrot_reference.points.push(z.as_vec2());
+        self.mandelbrot_reference.num_ref_iterations = i;
+        graphics_context.queue.write_buffer(
+            self.mandelbrot_reference.buffer.as_ref().unwrap(),
+            0,
+            bytemuck::cast_slice(&self.mandelbrot_reference.points),
+        );
+        self.mandelbrot_reference.recompute = false;
     }
 
     fn recompute_iterations(&mut self, graphics_context: &easy_shader_runner::GraphicsContext) {
+        self.iterations.points.clear();
+        self.iterations.recompute = false;
+        if self.cameras.mandelbrot.zoom > 1e5 {
+            return;
+        }
         use shared::complex::Complex;
         debug_assert!(self.iterations.enabled);
-        self.iterations.points.clear();
-        let c = Complex::from(self.iterations.marker);
+        let c = Complex::from(self.iterations.marker.as_vec2());
         let mut z = Complex::ZERO;
         let mut stats = super::IterationStats::default();
         let mut prev_z = Complex::new(-1.0, 0.0);
@@ -73,14 +110,13 @@ impl Controller {
         }
         self.iterations.stats = stats;
 
-        if self.iterations.points.len() > 0 {
+        if !self.iterations.points.is_empty() {
             graphics_context.queue.write_buffer(
                 self.iterations.points_buffer.as_ref().unwrap(),
                 0,
                 bytemuck::cast_slice(&self.iterations.points),
             );
         }
-        self.iterations.recompute = false;
     }
 
     fn handle_cursor_icon(&mut self, ctx: &egui::Context) {
@@ -97,15 +133,15 @@ impl Controller {
         }
     }
 
-    fn context_menu_window(&mut self, ctx: &egui::Context, pos: Vec2) {
+    fn context_menu_window(&mut self, ctx: &egui::Context, pos: DVec2) {
         let r = egui::Window::new("right_click_menu")
             .frame(egui::Frame::none())
             .title_bar(false)
             .resizable(false)
-            .fixed_pos(egui::pos2(pos.x, pos.y))
+            .fixed_pos([pos.x as f32, pos.y as f32])
             .show(ctx, |ui| {
                 if ui.button("Show iterations here").clicked() {
-                    self.iterations.marker = self.to_uv(pos);
+                    self.iterations.marker = self.to_uv_space_big(pos);
                     self.iterations.enabled = true;
                     self.iterations.recompute = true;
                     self.context_menu = None;
@@ -124,7 +160,7 @@ impl Controller {
         #[cfg(not(target_arch = "wasm32"))] ui_state: &mut UiState,
     ) {
         let width = 120.0;
-        egui::Window::new("ui")
+        egui::Window::new("Mandelbrot")
             .min_width(width)
             .max_width(width)
             .resizable(false)
@@ -176,9 +212,10 @@ impl Controller {
                 {
                     self.num_iterations = super::calculate_num_iterations(
                         self.cameras.mandelbrot.zoom,
-                        self.additional_iterations as f32,
+                        self.additional_iterations as f64,
                     );
                     self.iterations.recompute = self.iterations.enabled;
+                    self.mandelbrot_reference.recompute = true;
                 };
                 ui.separator();
                 ui.toggle_value(&mut self.smooth.enable, "Smooth");
@@ -245,18 +282,20 @@ impl Controller {
                             ui.label("Mandelbrot Zoom");
                             let zoom = camera.zoom;
                             if zoom < 1000.0 {
-                                ui.monospace(format!("{:.2}x", zoom));
+                                ui.monospace(format!("{:.2}", zoom));
+                            } else if zoom < 10000000.0 {
+                                ui.monospace(format!("{:.1}", zoom));
                             } else {
-                                ui.monospace(format!("{:.1}x", zoom));
+                                ui.monospace(format!("{:+.2e}", zoom));
                             }
                             ui.end_row();
 
                             ui.label("Mandelbrot X");
-                            ui.monospace(format!("{:+.6}", camera.translate.x));
+                            ui.monospace(format!("{:+.6e}", camera.translate.x.to_f32().value()));
                             ui.end_row();
 
                             ui.label("Mandelbrot Y");
-                            ui.monospace(format!("{:+.6}", camera.translate.y));
+                            ui.monospace(format!("{:+.6e}", camera.translate.y.to_f32().value()));
                             ui.end_row();
                         }
 
@@ -265,39 +304,36 @@ impl Controller {
                             ui.label("Julia Zoom");
                             let zoom = self.cameras.julia.zoom;
                             if zoom < 1000.0 {
-                                ui.monospace(format!("{:.2}x", zoom));
+                                ui.monospace(format!("{:.2}", zoom));
+                            } else if zoom < 10000000.0 {
+                                ui.monospace(format!("{:.1}", zoom));
                             } else {
-                                ui.monospace(format!("{:.1}x", zoom));
+                                ui.monospace(format!("{:+.2e}", zoom));
                             }
                             ui.end_row();
 
                             ui.label("Julia X");
-                            ui.monospace(format!("{:+.6}", camera.translate.x));
+                            ui.monospace(format!("{:+.6e}", camera.translate.x.to_f32().value()));
                             ui.end_row();
 
                             ui.label("Julia Y");
-                            ui.monospace(format!("{:+.6}", camera.translate.y));
-                            ui.end_row();
-                        }
-
-                        {
-                            let cursor_uv = self.to_uv(self.cursor);
-                            ui.label("cursor X");
-                            ui.monospace(format!("{:+.6}", cursor_uv.x));
-                            ui.end_row();
-
-                            ui.label("cursor Y");
-                            ui.monospace(format!("{:+.6}", cursor_uv.y));
+                            ui.monospace(format!("{:+.6e}", camera.translate.y.to_f32().value()));
                             ui.end_row();
                         }
 
                         if self.iterations.enabled || self.render_julia_set {
                             ui.label("marker X");
-                            ui.monospace(format!("{:+.6}", self.iterations.marker.x));
+                            ui.monospace(format!(
+                                "{:+.6e}",
+                                self.iterations.marker.x.to_f32().value()
+                            ));
                             ui.end_row();
 
                             ui.label("marker Y");
-                            ui.monospace(format!("{:+.6}", self.iterations.marker.y));
+                            ui.monospace(format!(
+                                "{:+.6e}",
+                                self.iterations.marker.y.to_f32().value()
+                            ));
                             ui.end_row();
                         }
                     });
