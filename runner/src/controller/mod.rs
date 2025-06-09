@@ -58,6 +58,7 @@ struct Camera {
     zoom: f64,
     translate: BigVec2,
     grabbing: bool,
+    needs_reiterate: bool,
 }
 
 impl Camera {
@@ -66,6 +67,7 @@ impl Camera {
             zoom,
             translate,
             grabbing: false,
+            needs_reiterate: true,
         }
     }
 
@@ -82,7 +84,8 @@ impl Camera {
                     IBig::from_str("143326526706623085196071470634592994379").unwrap(),
                     -127,
                 ),
-            ),
+            )
+            .with_precision(PRECISION),
         )
     }
 }
@@ -229,7 +232,6 @@ pub struct Controller {
     render_style: RenderStyle,
     additional_iterations: u32,
     mandelbrot_reference: MandelbrotReference,
-    needs_reiterate: bool,
 }
 
 impl Controller {
@@ -264,7 +266,6 @@ impl Controller {
             render_style: RenderStyle::default(),
             additional_iterations,
             mandelbrot_reference: MandelbrotReference::default(),
-            needs_reiterate: false,
         }
     }
 
@@ -343,7 +344,8 @@ impl ControllerTrait for Controller {
             self.cameras.calibrate(size);
         }
         self.size = size;
-        self.needs_reiterate = true;
+        self.cameras.mandelbrot.needs_reiterate = true;
+        self.cameras.julia.needs_reiterate = true;
     }
 
     fn keyboard_input(&mut self, key: KeyEvent) {
@@ -360,7 +362,8 @@ impl ControllerTrait for Controller {
                             'x' => 0.5,
                             _ => unreachable!(),
                         };
-                        self.needs_reiterate = true;
+                        self.cameras.mandelbrot.needs_reiterate = true;
+                        self.cameras.julia.needs_reiterate = true;
                         self.mandelbrot_reference.recompute = true;
                         self.iterations.recompute = self.iterations.enabled;
                         self.num_iterations = calculate_num_iterations(
@@ -382,12 +385,17 @@ impl ControllerTrait for Controller {
             self.iterations.marker +=
                 self.to_uv_space_big(self.cursor) - self.to_uv_space_big(self.prev_cursor);
             self.iterations.recompute = self.iterations.enabled;
+            self.cameras.julia.needs_reiterate = true;
         } else if self.render_split.dragging.is_some() {
             let size = self.size.as_dvec2();
             let delta = (self.prev_cursor - self.cursor) / size;
             let value = if size.x > size.y { delta.x } else { delta.y };
             self.render_split.value -= value;
-            self.needs_reiterate = true;
+            if value > 0.0 {
+                self.cameras.julia.needs_reiterate = true;
+            } else if value < 0.0 {
+                self.cameras.mandelbrot.needs_reiterate = true;
+            }
         } else {
             if self.cameras.mandelbrot.grabbing {
                 self.mandelbrot_reference.recompute = true;
@@ -399,7 +407,7 @@ impl ControllerTrait for Controller {
                         BigVec2::from_dvec2((self.prev_cursor - self.cursor) / self.size.y as f64)
                             .with_precision(PRECISION);
                     camera.translate += delta / camera.zoom;
-                    self.needs_reiterate = true;
+                    camera.needs_reiterate = true;
                 }
             }
         }
@@ -423,11 +431,12 @@ impl ControllerTrait for Controller {
             self.cameras.mandelbrot.zoom,
             self.additional_iterations as f64,
         );
+        self.cameras.julia.needs_reiterate = true;
         if !self.is_cursor_in_julia() {
             self.mandelbrot_reference.recompute = true;
+            self.cameras.mandelbrot.needs_reiterate = true;
             self.iterations.recompute = self.iterations.enabled;
         }
-        self.needs_reiterate = true;
     }
 
     fn mouse_input(&mut self, state: ElementState, button: MouseButton) {
@@ -467,8 +476,10 @@ impl ControllerTrait for Controller {
 
     fn prepare_render(&mut self, _offset: Vec2) -> impl bytemuck::NoUninit {
         self.animate.tick();
-        let needs_reiterate = self.needs_reiterate;
-        self.needs_reiterate = false;
+        let needs_reiterate_mandelbrot = self.cameras.mandelbrot.needs_reiterate;
+        let needs_reiterate_julia = self.cameras.julia.needs_reiterate;
+        self.cameras.mandelbrot.needs_reiterate = false;
+        self.cameras.julia.needs_reiterate = false;
         FragmentConstants {
             size: self.size.into(),
             time: self.start.elapsed().as_secs_f32(),
@@ -491,8 +502,8 @@ impl ControllerTrait for Controller {
             palette_period: self.palette_period,
             render_style: self.render_style,
             mandelbrot_num_ref_iterations: self.mandelbrot_reference.num_ref_iterations,
-            needs_reiterate: needs_reiterate.into(),
-            padding: 0,
+            needs_reiterate_mandelbrot: needs_reiterate_mandelbrot.into(),
+            needs_reiterate_julia: needs_reiterate_julia.into(),
         }
     }
 

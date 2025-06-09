@@ -30,7 +30,7 @@ impl Controller {
         if self.debug {
             self.debug_window(ctx);
         }
-        if self.mandelbrot_reference.recompute {
+        if self.cameras.mandelbrot.needs_reiterate {
             self.recompute_reference_iterations(graphics_context);
         }
     }
@@ -62,7 +62,6 @@ impl Controller {
             0,
             bytemuck::cast_slice(&self.mandelbrot_reference.points),
         );
-        self.mandelbrot_reference.recompute = false;
     }
 
     fn recompute_iterations(&mut self, graphics_context: &easy_shader_runner::GraphicsContext) {
@@ -145,6 +144,7 @@ impl Controller {
                     self.iterations.enabled = true;
                     self.iterations.recompute = true;
                     self.context_menu = None;
+                    self.cameras.julia.needs_reiterate = true;
                 }
             });
         if let Some(r) = r {
@@ -200,7 +200,8 @@ impl Controller {
                     ui.radio_value(&mut self.render_style, RenderStyle::Arg, "Arg");
                     ui.end_row();
                     if self.render_style != render_style {
-                        self.needs_reiterate = true;
+                        self.cameras.mandelbrot.needs_reiterate = true;
+                        self.cameras.julia.needs_reiterate = true;
                     }
                 });
                 ui.separator();
@@ -220,7 +221,8 @@ impl Controller {
                     );
                     self.iterations.recompute = self.iterations.enabled;
                     self.mandelbrot_reference.recompute = true;
-                    self.needs_reiterate = true;
+                    self.cameras.mandelbrot.needs_reiterate = true;
+                    self.cameras.julia.needs_reiterate = true;
                 };
                 ui.separator();
                 ui.toggle_value(&mut self.smooth.enable, "Smooth");
@@ -256,7 +258,11 @@ impl Controller {
                     .checkbox(&mut self.render_julia_set, "Render Julia Set")
                     .changed()
                 {
-                    self.needs_reiterate = true;
+                    if self.render_julia_set {
+                        self.cameras.julia.needs_reiterate = true;
+                    } else {
+                        self.cameras.mandelbrot.needs_reiterate = true;
+                    }
                 }
                 ui.separator();
                 ui.horizontal(|ui| {

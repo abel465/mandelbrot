@@ -156,42 +156,43 @@ pub fn main_fs(
         (coord - 0.5 * size) / size.y / mandelbrot_zoom + constants.mandelbrot_camera_translate;
     let is_julia = render_julia_set && coord.dot(n) > size.dot(n) * constants.render_split;
 
-    let render_parameters = if constants.needs_reiterate.into() {
-        let render_parameters = if is_julia {
-            let z0 = ((coord - 0.5 * size) / size.y / constants.julia_camera_zoom
-                + constants.julia_camera_translate)
-                .into();
-            let c: Complex = constants.marker.into();
-            let mandelbrot_input = RegularMandelbrot { z0, c };
-            let render_parameter_builder = RenderParameterBuilder {
-                constants,
-                mandelbrot_input,
-            };
-            match constants.render_style {
-                RenderStyle::Iterations => render_parameter_builder.iterations(),
-                RenderStyle::Arg => render_parameter_builder.arg(),
-                RenderStyle::LastDistance => render_parameter_builder.last_distance(),
-            }
-        } else {
-            let dc = ((coord - 0.5 * size) / size.y / mandelbrot_zoom).into();
-            let mandelbrot_input = PerturbedMandelbrot {
-                z0: Complex::ZERO,
-                dz: Complex::ZERO,
-                dc,
-                reference_points: mandelbrot_reference_points,
-                num_ref_iterations: constants.mandelbrot_num_ref_iterations as usize,
-            };
-            let render_parameter_builder = RenderParameterBuilder {
-                constants,
-                mandelbrot_input,
-            };
-            match constants.render_style {
-                RenderStyle::Iterations => render_parameter_builder.iterations(),
-                RenderStyle::Arg => render_parameter_builder.arg(),
-                RenderStyle::LastDistance => render_parameter_builder.last_distance(),
-            }
+    let render_parameters = if constants.needs_reiterate_mandelbrot.into() && !is_julia {
+        let dc = ((coord - 0.5 * size) / size.y / mandelbrot_zoom).into();
+        let mandelbrot_input = PerturbedMandelbrot {
+            z0: Complex::ZERO,
+            dz: Complex::ZERO,
+            dc,
+            reference_points: mandelbrot_reference_points,
+            num_ref_iterations: constants.mandelbrot_num_ref_iterations as usize,
+        };
+        let render_parameter_builder = RenderParameterBuilder {
+            constants,
+            mandelbrot_input,
+        };
+        let render_parameters = match constants.render_style {
+            RenderStyle::Iterations => render_parameter_builder.iterations(),
+            RenderStyle::Arg => render_parameter_builder.arg(),
+            RenderStyle::LastDistance => render_parameter_builder.last_distance(),
         };
 
+        let mut cell_grid = GridRefMut::new(GRID_SIZE, grid);
+        cell_grid.set(coord.as_uvec2(), render_parameters);
+        render_parameters
+    } else if constants.needs_reiterate_julia.into() && is_julia {
+        let z0 = ((coord - 0.5 * size) / size.y / constants.julia_camera_zoom
+            + constants.julia_camera_translate)
+            .into();
+        let c: Complex = constants.marker.into();
+        let mandelbrot_input = RegularMandelbrot { z0, c };
+        let render_parameter_builder = RenderParameterBuilder {
+            constants,
+            mandelbrot_input,
+        };
+        let render_parameters = match constants.render_style {
+            RenderStyle::Iterations => render_parameter_builder.iterations(),
+            RenderStyle::Arg => render_parameter_builder.arg(),
+            RenderStyle::LastDistance => render_parameter_builder.last_distance(),
+        };
         let mut cell_grid = GridRefMut::new(GRID_SIZE, grid);
         cell_grid.set(coord.as_uvec2(), render_parameters);
         render_parameters
@@ -225,10 +226,7 @@ pub fn main_fs(
         }
         // Marker
         {
-            let d = sdf::disk(
-                coord - constants.marker_screen_space,
-                MARKER_RADIUS,
-            );
+            let d = sdf::disk(coord - constants.marker_screen_space, MARKER_RADIUS);
             let intensity = smoothstep(3.0, 0.0, d.abs());
             if d < 0.0 {
                 col = Vec3::splat(intensity);
