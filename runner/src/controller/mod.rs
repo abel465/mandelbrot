@@ -19,20 +19,11 @@ const MAX_ADDITIONAL_ITERS: u32 = 200;
 const PRECISION: usize = 192;
 
 struct Cameras {
-    has_calibrated: bool,
     mandelbrot: Camera,
     julia: Camera,
 }
 
 impl Cameras {
-    fn calibrate(&mut self, size: UVec2) {
-        if size.x < size.y {
-            self.mandelbrot.translate = BigVec2::from_f64s(-0.8, 1.0);
-            self.julia.translate = BigVec2::from_f64s(0.0, -1.0);
-        }
-        self.has_calibrated = true;
-    }
-
     fn iter_mut(&mut self) -> [&mut Camera; 2] {
         [&mut self.mandelbrot, &mut self.julia]
     }
@@ -41,14 +32,13 @@ impl Cameras {
 impl Default for Cameras {
     fn default() -> Self {
         Self {
-            has_calibrated: false,
             julia: Camera::new(
                 0.25,
-                BigVec2::from_f64s(-1.3, 0.0).with_precision(PRECISION),
+                BigVec2::from_f64s(0.0, 0.0).with_precision(PRECISION),
             ),
             mandelbrot: Camera::new(
-                0.25,
-                BigVec2::from_f64s(0.6, -0.3).with_precision(PRECISION),
+                0.3,
+                BigVec2::from_f64s(-0.75, 0.0).with_precision(PRECISION),
             ),
         }
     }
@@ -114,12 +104,12 @@ struct Iterations {
 impl Default for Iterations {
     fn default() -> Self {
         Iterations {
-            enabled: true,
+            enabled: false,
             dragging: false,
             marker: BigVec2::from_f64s(-0.767294, -0.169140),
             points: vec![],
             points_buffer: None,
-            recompute: true,
+            recompute: false,
             stats: IterationStats::default(),
         }
     }
@@ -148,7 +138,7 @@ impl Default for Smooth {
     fn default() -> Self {
         Self {
             enable: true,
-            value: 0.5,
+            value: 1.0,
         }
     }
 }
@@ -256,7 +246,7 @@ impl Controller {
             debug: options.debug,
             iterations: Iterations::default(),
             context_menu: None,
-            render_julia_set: true,
+            render_julia_set: false,
             render_split: RenderSplit::default(),
             palette: Palette::default(),
             palette_period: 0.5,
@@ -340,9 +330,6 @@ impl Controller {
 
 impl ControllerTrait for Controller {
     fn resize(&mut self, size: UVec2) {
-        if !self.cameras.has_calibrated {
-            self.cameras.calibrate(size);
-        }
         self.size = size;
         self.cameras.mandelbrot.needs_reiterate = true;
         self.cameras.julia.needs_reiterate = true;
