@@ -5,7 +5,7 @@ use dashu::integer::IBig;
 use easy_shader_runner::{egui, wgpu, winit, ControllerTrait, UiState};
 use glam::*;
 use shared::push_constants::shader::*;
-use shared::MARKER_RADIUS;
+use shared::*;
 use std::str::FromStr;
 use web_time::Instant;
 use winit::event::{ElementState, MouseButton};
@@ -229,6 +229,7 @@ pub struct Controller {
     render_style: RenderStyle,
     additional_iterations: u32,
     mandelbrot_reference: MandelbrotReference,
+    needs_reiterate: bool,
 }
 
 impl Controller {
@@ -263,6 +264,7 @@ impl Controller {
             render_style: RenderStyle::default(),
             additional_iterations,
             mandelbrot_reference: MandelbrotReference::default(),
+            needs_reiterate: false,
         }
     }
 
@@ -341,6 +343,7 @@ impl ControllerTrait for Controller {
             self.cameras.calibrate(size);
         }
         self.size = size;
+        self.needs_reiterate = true;
     }
 
     fn keyboard_input(&mut self, key: KeyEvent) {
@@ -348,15 +351,26 @@ impl ControllerTrait for Controller {
             return;
         }
         match key.logical_key {
-            Key::Character(c) => match c.chars().next().unwrap() {
-                'z' => {
-                    self.cameras.mandelbrot.zoom *= 2.0;
+            Key::Character(c) => {
+                let c = c.chars().next().unwrap();
+                match c {
+                    'z' | 'x' => {
+                        self.cameras.mandelbrot.zoom *= match c {
+                            'z' => 2.0,
+                            'x' => 0.5,
+                            _ => unreachable!(),
+                        };
+                        self.needs_reiterate = true;
+                        self.mandelbrot_reference.recompute = true;
+                        self.iterations.recompute = self.iterations.enabled;
+                        self.num_iterations = calculate_num_iterations(
+                            self.cameras.mandelbrot.zoom,
+                            self.additional_iterations as f64,
+                        );
+                    }
+                    _ => {}
                 }
-                'x' => {
-                    self.cameras.mandelbrot.zoom *= 0.5;
-                }
-                _ => {}
-            },
+            }
             _ => {}
         }
     }
@@ -366,13 +380,14 @@ impl ControllerTrait for Controller {
         self.cursor = position;
         if self.iterations.dragging {
             self.iterations.marker +=
-                self.to_uv_space_big(self.cursor) - self.to_uv_space_big(self.prev_cursor); //TODO
+                self.to_uv_space_big(self.cursor) - self.to_uv_space_big(self.prev_cursor);
             self.iterations.recompute = self.iterations.enabled;
         } else if self.render_split.dragging.is_some() {
             let size = self.size.as_dvec2();
             let delta = (self.prev_cursor - self.cursor) / size;
             let value = if size.x > size.y { delta.x } else { delta.y };
             self.render_split.value -= value;
+            self.needs_reiterate = true;
         } else {
             if self.cameras.mandelbrot.grabbing {
                 self.mandelbrot_reference.recompute = true;
@@ -384,6 +399,7 @@ impl ControllerTrait for Controller {
                         BigVec2::from_dvec2((self.prev_cursor - self.cursor) / self.size.y as f64)
                             .with_precision(PRECISION);
                     camera.translate += delta / camera.zoom;
+                    self.needs_reiterate = true;
                 }
             }
         }
@@ -411,6 +427,7 @@ impl ControllerTrait for Controller {
             self.mandelbrot_reference.recompute = true;
             self.iterations.recompute = self.iterations.enabled;
         }
+        self.needs_reiterate = true;
     }
 
     fn mouse_input(&mut self, state: ElementState, button: MouseButton) {
@@ -450,6 +467,8 @@ impl ControllerTrait for Controller {
 
     fn prepare_render(&mut self, _offset: Vec2) -> impl bytemuck::NoUninit {
         self.animate.tick();
+        let needs_reiterate = self.needs_reiterate;
+        self.needs_reiterate = false;
         FragmentConstants {
             size: self.size.into(),
             time: self.start.elapsed().as_secs_f32(),
@@ -472,6 +491,8 @@ impl ControllerTrait for Controller {
             palette_period: self.palette_period,
             render_style: self.render_style,
             mandelbrot_num_ref_iterations: self.mandelbrot_reference.num_ref_iterations,
+            needs_reiterate: needs_reiterate.into(),
+            padding: 0,
         }
     }
 
@@ -489,6 +510,14 @@ impl ControllerTrait for Controller {
                 read_only: true,
                 shader_stages: wgpu::ShaderStages::FRAGMENT,
                 cpu_writable: true,
+            },
+            easy_shader_runner::BufferDescriptor {
+                data: &[0; std::mem::size_of::<RenderParameters>()
+                    * GRID_SIZE.x as usize
+                    * GRID_SIZE.y as usize],
+                read_only: false,
+                shader_stages: wgpu::ShaderStages::FRAGMENT,
+                cpu_writable: false,
             },
         ]
     }

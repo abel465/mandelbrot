@@ -22,6 +22,33 @@ pub enum Palette {
     F,
 }
 
+#[derive(Copy, Clone, Debug, NoUninit, Default)]
+#[repr(C)]
+pub struct RenderParameters {
+    pub inside: Bool,
+    pub x0: f32,
+    pub x1: f32,
+    pub h: f32,
+}
+
+impl RenderParameters {
+    pub fn new_inside() -> Self {
+        Self {
+            inside: true.into(),
+            ..RenderParameters::default()
+        }
+    }
+
+    pub fn new_outside(x0: f32, x1: f32, h: f32) -> Self {
+        Self {
+            inside: false.into(),
+            x0,
+            x1,
+            h,
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug, NoUninit)]
 #[repr(C)]
 pub struct FragmentConstants {
@@ -46,4 +73,6 @@ pub struct FragmentConstants {
     pub palette_period: f32,
     pub render_style: RenderStyle,
     pub mandelbrot_num_ref_iterations: u32,
+    pub needs_reiterate: Bool,
+    pub padding: u32,
 }

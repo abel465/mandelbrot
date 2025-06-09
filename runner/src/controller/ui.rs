@@ -185,6 +185,7 @@ impl Controller {
                     ui.label(egui::RichText::new("Render Style").size(15.0));
                 });
                 egui::Grid::new("render_style_grid").show(ui, |ui| {
+                    let render_style = self.render_style;
                     ui.radio_value(
                         &mut self.render_style,
                         RenderStyle::Iterations,
@@ -198,6 +199,9 @@ impl Controller {
                     ui.end_row();
                     ui.radio_value(&mut self.render_style, RenderStyle::Arg, "Arg");
                     ui.end_row();
+                    if self.render_style != render_style {
+                        self.needs_reiterate = true;
+                    }
                 });
                 ui.separator();
                 ui.vertical_centered(|ui| {
@@ -216,6 +220,7 @@ impl Controller {
                     );
                     self.iterations.recompute = self.iterations.enabled;
                     self.mandelbrot_reference.recompute = true;
+                    self.needs_reiterate = true;
                 };
                 ui.separator();
                 ui.toggle_value(&mut self.smooth.enable, "Smooth");
@@ -247,7 +252,12 @@ impl Controller {
                 {
                     self.iterations.recompute = true;
                 };
-                ui.checkbox(&mut self.render_julia_set, "Render Julia Set");
+                if ui
+                    .checkbox(&mut self.render_julia_set, "Render Julia Set")
+                    .changed()
+                {
+                    self.needs_reiterate = true;
+                }
                 ui.separator();
                 ui.horizontal(|ui| {
                     ui.checkbox(&mut self.debug, "Debug");

@@ -1,8 +1,9 @@
 #![no_std]
 
-use core::f32::consts::{PI, TAU};
+use core::f32::consts::TAU;
 use push_constants::shader::*;
 use shared::complex::Complex;
+use shared::grid::*;
 use shared::*;
 use spirv_std::glam::*;
 #[cfg(target_arch = "spirv")]
@@ -42,7 +43,7 @@ trait Mandelbrot {
 struct MandelbrotResult {
     inside: bool,
     i: u32,
-    s: f32,
+    h: f32,
 }
 
 struct RegularMandelbrot {
@@ -75,8 +76,7 @@ impl Mandelbrot for RegularMandelbrot {
 
         let h = get_lerp_factor(prev_norm_sq, norm_sq);
         let inside = norm_sq < 4.0 || i == num_iters && constants.num_iterations.fract() < h;
-        let s = smoothstep(0.0, constants.smooth_factor, h);
-        MandelbrotResult { inside, i, s }
+        MandelbrotResult { inside, i, h }
     }
 }
 
@@ -127,8 +127,7 @@ impl Mandelbrot for PerturbedMandelbrot<'_> {
 
         let h = get_lerp_factor(prev_norm_sq, norm_sq);
         let inside = norm_sq < 4.0 || i == num_iters && constants.num_iterations.fract() < h;
-        let s = smoothstep(0.0, constants.smooth_factor, h);
-        MandelbrotResult { inside, i, s }
+        MandelbrotResult { inside, i, h }
     }
 }
 
@@ -139,53 +138,72 @@ pub fn main_fs(
     #[spirv(push_constant)]
     constants: &FragmentConstants,
     #[cfg(feature = "emulate_constants")]
-    #[spirv(storage_buffer, descriptor_set = 2, binding = 0)]
+    #[spirv(storage_buffer, descriptor_set = 3, binding = 0)]
     constants: &FragmentConstants,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] iteration_points: &[Vec2],
     #[spirv(storage_buffer, descriptor_set = 1, binding = 0)]
     mandelbrot_reference_points: &[Complex],
+    #[spirv(storage_buffer, descriptor_set = 2, binding = 0)] grid: &mut [RenderParameters],
     output: &mut Vec4,
 ) {
+    let coord = frag_coord.xy();
     let size = constants.size.as_vec2();
     let is_split_vertical = size.x > size.y;
     let n = if is_split_vertical { Vec2::X } else { Vec2::Y };
     let render_julia_set = constants.render_julia_set.into();
     let mandelbrot_zoom = constants.mandelbrot_camera_zoom;
-    let mandelbrot_uv = (frag_coord.xy() - 0.5 * size) / size.y / mandelbrot_zoom
-        + constants.mandelbrot_camera_translate;
-    let is_julia =
-        render_julia_set && frag_coord.xy().dot(n) > size.dot(n) * constants.render_split;
+    let mandelbrot_uv =
+        (coord - 0.5 * size) / size.y / mandelbrot_zoom + constants.mandelbrot_camera_translate;
+    let is_julia = render_julia_set && coord.dot(n) > size.dot(n) * constants.render_split;
 
-    let mut col = if is_julia {
-        let z0 = ((frag_coord.xy() - 0.5 * size) / size.y / constants.julia_camera_zoom
-            + constants.julia_camera_translate)
-            .into();
-        let c: Complex = constants.marker.into();
-        let mandelbrot_input = RegularMandelbrot { z0, c };
-        match constants.render_style {
-            RenderStyle::Iterations => col_from_iterations(constants, mandelbrot_input),
-            RenderStyle::Arg => col_from_arg(constants, mandelbrot_input),
-            RenderStyle::LastDistance => col_from_last_distance(constants, mandelbrot_input),
-        }
-    } else {
-        let dc = ((frag_coord.xy() - 0.5 * size) / size.y / mandelbrot_zoom).into();
-        let mandelbrot_input = PerturbedMandelbrot {
-            z0: Complex::ZERO,
-            dz: Complex::ZERO,
-            dc,
-            reference_points: mandelbrot_reference_points,
-            num_ref_iterations: constants.mandelbrot_num_ref_iterations as usize,
+    let render_parameters = if constants.needs_reiterate.into() {
+        let render_parameters = if is_julia {
+            let z0 = ((coord - 0.5 * size) / size.y / constants.julia_camera_zoom
+                + constants.julia_camera_translate)
+                .into();
+            let c: Complex = constants.marker.into();
+            let mandelbrot_input = RegularMandelbrot { z0, c };
+            let render_parameter_builder = RenderParameterBuilder {
+                constants,
+                mandelbrot_input,
+            };
+            match constants.render_style {
+                RenderStyle::Iterations => render_parameter_builder.iterations(),
+                RenderStyle::Arg => render_parameter_builder.arg(),
+                RenderStyle::LastDistance => render_parameter_builder.last_distance(),
+            }
+        } else {
+            let dc = ((coord - 0.5 * size) / size.y / mandelbrot_zoom).into();
+            let mandelbrot_input = PerturbedMandelbrot {
+                z0: Complex::ZERO,
+                dz: Complex::ZERO,
+                dc,
+                reference_points: mandelbrot_reference_points,
+                num_ref_iterations: constants.mandelbrot_num_ref_iterations as usize,
+            };
+            let render_parameter_builder = RenderParameterBuilder {
+                constants,
+                mandelbrot_input,
+            };
+            match constants.render_style {
+                RenderStyle::Iterations => render_parameter_builder.iterations(),
+                RenderStyle::Arg => render_parameter_builder.arg(),
+                RenderStyle::LastDistance => render_parameter_builder.last_distance(),
+            }
         };
-        match constants.render_style {
-            RenderStyle::Iterations => col_from_iterations(constants, mandelbrot_input),
-            RenderStyle::Arg => col_from_arg(constants, mandelbrot_input),
-            RenderStyle::LastDistance => col_from_last_distance(constants, mandelbrot_input),
-        }
+
+        let mut cell_grid = GridRefMut::new(GRID_SIZE, grid);
+        cell_grid.set(coord.as_uvec2(), render_parameters);
+        render_parameters
+    } else {
+        let cell_grid = GridRef::new(GRID_SIZE, grid);
+        cell_grid.get(coord.as_uvec2())
     };
+    let mut col = col_from_render_parameters(constants, render_parameters);
 
     // Slider
     if render_julia_set {
-        let d = (frag_coord.xy() + 0.5 - size * constants.render_split * n)
+        let d = (coord + 0.5 - size * constants.render_split * n)
             .dot(n)
             .abs();
         let intensity = smoothstep(4.0, 0.0, d);
@@ -208,7 +226,7 @@ pub fn main_fs(
         // Marker
         {
             let d = sdf::disk(
-                frag_coord.xy() - constants.marker_screen_space,
+                coord - constants.marker_screen_space,
                 MARKER_RADIUS,
             );
             let intensity = smoothstep(3.0, 0.0, d.abs());
@@ -223,55 +241,75 @@ pub fn main_fs(
     *output = col.extend(1.0);
 }
 
-fn col_from_iterations<T: Mandelbrot>(constants: &FragmentConstants, mandelbrot_input: T) -> Vec3 {
-    let mandelbrot = mandelbrot_input.iterate(constants, |_| {});
-    if mandelbrot.inside {
-        Vec3::ZERO
-    } else {
-        let period = constants.palette_period * 0.2;
-        let t = constants.animate_time;
-        let x = (mandelbrot.i as f32 + mandelbrot.s) * period - t;
-        get_col(constants.palette, x)
-    }
-}
-
-fn col_from_arg<T: Mandelbrot>(constants: &FragmentConstants, mandelbrot_input: T) -> Vec3 {
-    let mut zs = [Complex::ZERO, mandelbrot_input.z0()];
-    let mandelbrot = mandelbrot_input.iterate(constants, |z| {
-        zs[0] = zs[1];
-        zs[1] = z;
-    });
-    if mandelbrot.inside {
-        Vec3::ZERO
-    } else {
-        let period = (1 << (constants.palette_period * 3.0) as u32) as f32 / TAU;
-        let t = constants.animate_time * PI;
-        let col0 = get_col(constants.palette, zs[0].arg() * period - t);
-        let col1 = get_col(constants.palette, zs[1].arg() * period - t);
-        col0.lerp(col1, mandelbrot.s)
-    }
-}
-
-fn col_from_last_distance<T: Mandelbrot>(
+fn col_from_render_parameters(
     constants: &FragmentConstants,
-    mandelbrot_input: T,
+    render_parameters: RenderParameters,
 ) -> Vec3 {
-    let mut zs = [Complex::ZERO, Complex::ZERO, mandelbrot_input.z0()];
-    let mandelbrot = mandelbrot_input.iterate(constants, |z| {
-        zs[0] = zs[1];
-        zs[1] = zs[2];
-        zs[2] = z;
-    });
-    if mandelbrot.inside {
-        Vec3::ZERO
-    } else {
-        let period = constants.palette_period;
-        let t = constants.animate_time;
-        let ds0 = zs[0].distance(zs[1].0);
-        let ds1 = zs[1].distance(zs[2].0);
-        let col0 = get_col(constants.palette, ds0 * period + t);
-        let col1 = get_col(constants.palette, ds1 * period + t);
-        col0.lerp(col1, mandelbrot.s)
+    if render_parameters.inside.into() {
+        return Vec3::ZERO;
+    }
+    let period = constants.palette_period;
+    let t = constants.animate_time;
+    let (period, t) = match constants.render_style {
+        RenderStyle::Iterations => (0.2 * period, -t),
+        RenderStyle::Arg => (
+            (1 << (constants.palette_period * 3.0) as u32) as f32 / TAU,
+            -t,
+        ),
+        RenderStyle::LastDistance => (period, t),
+    };
+    let x0 = render_parameters.x0 * period + t;
+    let x1 = render_parameters.x1 * period + t;
+    let col0 = get_col(constants.palette, x0);
+    let col1 = get_col(constants.palette, x1);
+    let s = smoothstep(0.0, constants.smooth_factor, render_parameters.h);
+    col0.lerp(col1, s)
+}
+
+struct RenderParameterBuilder<'a, T> {
+    constants: &'a FragmentConstants,
+    mandelbrot_input: T,
+}
+
+impl<T: Mandelbrot> RenderParameterBuilder<'_, T> {
+    fn iterations(self) -> RenderParameters {
+        let mandelbrot = self.mandelbrot_input.iterate(self.constants, |_| {});
+        if mandelbrot.inside {
+            RenderParameters::new_inside()
+        } else {
+            let x0 = mandelbrot.i as f32;
+            let x1 = (mandelbrot.i + 1) as f32;
+            RenderParameters::new_outside(x0, x1, mandelbrot.h)
+        }
+    }
+
+    fn arg(self) -> RenderParameters {
+        let mut zs = [Complex::ZERO, self.mandelbrot_input.z0()];
+        let mandelbrot = self.mandelbrot_input.iterate(self.constants, |z| {
+            zs[0] = zs[1];
+            zs[1] = z;
+        });
+        if mandelbrot.inside {
+            RenderParameters::new_inside()
+        } else {
+            RenderParameters::new_outside(zs[0].arg(), zs[1].arg(), mandelbrot.h)
+        }
+    }
+
+    fn last_distance(self) -> RenderParameters {
+        let mut zs = [Complex::ZERO, Complex::ZERO, self.mandelbrot_input.z0()];
+        let mandelbrot = self.mandelbrot_input.iterate(self.constants, |z| {
+            zs[0] = zs[1];
+            zs[1] = zs[2];
+            zs[2] = z;
+        });
+        if mandelbrot.inside {
+            RenderParameters::new_inside()
+        } else {
+            let ds0 = zs[0].distance(zs[1].0);
+            let ds1 = zs[1].distance(zs[2].0);
+            RenderParameters::new_outside(ds0, ds1, mandelbrot.h)
+        }
     }
 }
 

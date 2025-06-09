@@ -18,6 +18,10 @@ impl Size {
     pub fn as_vec2(self) -> Vec2 {
         vec2(self.width as f32, self.height as f32)
     }
+
+    pub fn as_uvec2(self) -> UVec2 {
+        uvec2(self.width, self.height)
+    }
 }
 
 impl From<UVec2> for Size {
