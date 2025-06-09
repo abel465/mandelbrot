@@ -58,8 +58,8 @@
           src = ./.;
           cargoLock.lockFile = ./Cargo.lock;
           cargoLock.outputHashes = {
-            "rustc_codegen_spirv-0.9.0" = "sha256-fVE62L+uyzB0Ydol1q1Ge+8S/oYZxZYZj4eGBsYi6S0=";
-            "easy-shader-runner-0.0.0" = "sha256-iYcMFzjWS3LA8xyJZAB4TUhHxOY4/nC3aQ+OwEz24RU=";
+            "rustc_codegen_spirv-0.9.0" = "sha256-acLN+bJBXbFNuFe8l+TwgKsawTrxIBXCvo3JIRcos/I=";
+            "easy-shader-runner-0.0.0" = "sha256-NdnoBl9819Kk9P6PXaFsFxncf3xyjdJ/28EJB5+RewM=";
           };
           buildNoDefaultFeatures = true;
           buildFeatures = ["runtime-compilation"];
