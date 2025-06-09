@@ -277,7 +277,7 @@ impl<T: Mandelbrot> RenderParameterBuilder<'_, T> {
         } else {
             let x0 = mandelbrot.i as f32;
             let x1 = (mandelbrot.i + 1) as f32;
-            RenderParameters::new_outside(x0, x1, mandelbrot.h)
+            RenderParameters::new_outside(x0, x1, mandelbrot.h.sqrt())
         }
     }
 
@@ -290,7 +290,7 @@ impl<T: Mandelbrot> RenderParameterBuilder<'_, T> {
         if mandelbrot.inside {
             RenderParameters::new_inside()
         } else {
-            RenderParameters::new_outside(zs[0].arg(), zs[1].arg(), mandelbrot.h)
+            RenderParameters::new_outside(zs[0].arg(), zs[1].arg(), mandelbrot.h.sqrt())
         }
     }
 
