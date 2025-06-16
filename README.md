@@ -1,19 +1,19 @@
 # mandelbrot
 Cool fractal
 
-## Try with nix
+## Try it out
 ```bash
 nix run github:abel465/mandelbrot
 ```
 
-## Set up development environment
+## Set up
 ```bash
 git clone https://github.com/abel465/mandelbrot.git
 cd mandelbrot/
 nix develop
 ```
 
-## Run the example
+## Run
 ### Native
 ```bash
 cargo run
@@ -23,6 +23,6 @@ cargo run
 ```bash
 cd wasm-app
 npm install
-wasm-pack build ../runner --out-dir ../wasm-app/pkg --dev
+npm run wasm-pack-dev
 npm run dev
 ```
