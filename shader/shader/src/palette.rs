@@ -11,7 +11,17 @@ fn cos_vec3(v: Vec3) -> Vec3 {
     vec3(v.x.cos(), v.y.cos(), v.z.cos())
 }
 
-pub fn cola(t: f32) -> Vec3 {
+pub fn zebra(t: f32) -> Vec3 {
+    pal(
+        t,
+        vec3(0.5, 0.5, 0.5),
+        vec3(0.5, 0.5, 0.5),
+        vec3(1.0, 1.0, 1.0),
+        vec3(0.0, 0.0, 0.0),
+    )
+}
+
+pub fn rgb(t: f32) -> Vec3 {
     pal(
         t,
         vec3(0.5, 0.5, 0.5),
@@ -21,27 +31,7 @@ pub fn cola(t: f32) -> Vec3 {
     )
 }
 
-pub fn colb(t: f32) -> Vec3 {
-    pal(
-        t,
-        vec3(0.5, 0.5, 0.5),
-        vec3(0.5, 0.5, 0.5),
-        vec3(1.0, 1.0, 1.0),
-        vec3(0.0, 0.10, 0.20),
-    )
-}
-
-pub fn colc(t: f32) -> Vec3 {
-    pal(
-        t,
-        vec3(0.5, 0.5, 0.5),
-        vec3(0.5, 0.5, 0.5),
-        vec3(1.0, 1.0, 1.0),
-        vec3(0.3, 0.20, 0.20),
-    )
-}
-
-pub fn cold(t: f32) -> Vec3 {
+pub fn neon_a(t: f32) -> Vec3 {
     pal(
         t,
         vec3(0.5, 0.5, 0.5),
@@ -51,7 +41,57 @@ pub fn cold(t: f32) -> Vec3 {
     )
 }
 
-pub fn cole(t: f32) -> Vec3 {
+pub fn neon_b(t: f32) -> Vec3 {
+    pal(
+        t,
+        vec3(0.6, 0.6, 0.6),
+        vec3(0.3, 0.3, 0.3),
+        vec3(1.0, 2.0, 0.5),
+        vec3(0.5, 0.0, 0.67),
+    )
+}
+
+pub fn neon_c(t: f32) -> Vec3 {
+    pal(
+        t,
+        vec3(0.6, 0.6, 0.6),
+        vec3(0.3, 0.3, 0.3),
+        vec3(0.5, 2.0, 1.0),
+        vec3(0.0, 0.5, 0.67),
+    )
+}
+
+pub fn pastel(t: f32) -> Vec3 {
+    pal(
+        t,
+        vec3(0.9, 0.8, 0.8),
+        vec3(0.5, 0.2, 0.3),
+        vec3(1.0, 2.0, 1.0),
+        vec3(0.0, 0.5, 0.67),
+    )
+}
+
+pub fn copper(t: f32) -> Vec3 {
+    pal(
+        t,
+        vec3(0.66, 0.6, 0.6),
+        vec3(0.3, 0.3, 0.3),
+        vec3(1.0, 1.0, 1.0),
+        vec3(0.33, 0.20, 0.20),
+    )
+}
+
+pub fn red_and_black(t: f32) -> Vec3 {
+    pal(
+        t,
+        vec3(0.5, 0.0, 0.0),
+        vec3(0.5, 0.0, 0.0),
+        vec3(1.0, 0.0, 0.0),
+        vec3(0.0, 0.0, 0.0),
+    )
+}
+
+pub fn solarized_dark(t: f32) -> Vec3 {
     pal(
         t,
         vec3(0.5, 0.5, 0.5),
@@ -61,12 +101,12 @@ pub fn cole(t: f32) -> Vec3 {
     )
 }
 
-pub fn colf(t: f32) -> Vec3 {
+pub fn highlighter(t: f32) -> Vec3 {
     pal(
         t,
         vec3(0.8, 0.5, 0.4),
         vec3(0.2, 0.4, 0.2),
         vec3(2.0, 1.0, 1.0),
-        vec3(0.0, 0.25, 0.25),
+        vec3(0.0, 0.333, 0.667),
     )
 }

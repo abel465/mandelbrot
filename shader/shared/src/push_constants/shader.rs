@@ -16,12 +16,16 @@ pub enum RenderStyle {
 #[repr(u32)]
 pub enum Palette {
     #[default]
-    A,
-    B,
-    C,
-    D,
-    E,
-    F,
+    Pastel,
+    Zebra,
+    Copper,
+    SolarizedDark,
+    Highlighter,
+    RedAndBlack,
+    RGB,
+    NeonA,
+    NeonB,
+    NeonC,
 }
 
 #[derive(Copy, Clone, Debug, NoUninit, Default)]

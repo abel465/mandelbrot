@@ -169,13 +169,20 @@ impl Controller {
                     ui.label(egui::RichText::new("Palette").size(15.0));
                 });
                 egui::Grid::new("col_grid").show(ui, |ui| {
-                    ui.radio_value(&mut self.palette, Palette::A, "A");
-                    ui.radio_value(&mut self.palette, Palette::B, "B");
-                    ui.radio_value(&mut self.palette, Palette::C, "C");
+                    ui.radio_value(&mut self.palette, Palette::Pastel, "Pastel");
+                    ui.radio_value(&mut self.palette, Palette::SolarizedDark, "SolarizedDark");
                     ui.end_row();
-                    ui.radio_value(&mut self.palette, Palette::D, "D");
-                    ui.radio_value(&mut self.palette, Palette::E, "E");
-                    ui.radio_value(&mut self.palette, Palette::F, "F");
+                    ui.radio_value(&mut self.palette, Palette::Copper, "Copper");
+                    ui.radio_value(&mut self.palette, Palette::RedAndBlack, "RedAndBlack");
+                    ui.end_row();
+                    ui.radio_value(&mut self.palette, Palette::NeonA, "NeonA");
+                    ui.radio_value(&mut self.palette, Palette::Highlighter, "Highlighter");
+                    ui.end_row();
+                    ui.radio_value(&mut self.palette, Palette::NeonB, "NeonB");
+                    ui.radio_value(&mut self.palette, Palette::RGB, "RGB");
+                    ui.end_row();
+                    ui.radio_value(&mut self.palette, Palette::NeonC, "NeonC");
+                    ui.radio_value(&mut self.palette, Palette::Zebra, "Zebra");
                     ui.end_row();
                 });
                 ui.label("Period");

@@ -26,12 +26,16 @@ pub fn smoothstep(edge0: f32, edge1: f32, x: f32) -> f32 {
 
 fn get_col(palette: Palette, x: f32) -> Vec3 {
     match palette {
-        Palette::A => palette::cola(x),
-        Palette::B => palette::colb(x),
-        Palette::C => palette::colc(x),
-        Palette::D => palette::cold(x),
-        Palette::E => palette::cole(x),
-        Palette::F => palette::colf(x),
+        Palette::RGB => palette::rgb(x),
+        Palette::Zebra => palette::zebra(x),
+        Palette::Copper => palette::copper(x),
+        Palette::NeonA => palette::neon_a(x),
+        Palette::SolarizedDark => palette::solarized_dark(x),
+        Palette::Highlighter => palette::highlighter(x),
+        Palette::Pastel => palette::pastel(x),
+        Palette::RedAndBlack => palette::red_and_black(x),
+        Palette::NeonB => palette::neon_b(x),
+        Palette::NeonC => palette::neon_c(x),
     }
 }
 
@@ -240,7 +244,7 @@ pub fn main_fs(
         }
     }
 
-    *output = col.extend(1.0);
+    *output = col.powf(2.2).extend(1.0);
 }
 
 fn col_from_render_parameters(
