@@ -173,6 +173,7 @@ pub fn main_fs(
             RenderStyle::Iterations => render_parameter_builder.iterations(),
             RenderStyle::Arg => render_parameter_builder.arg(),
             RenderStyle::LastDistance => render_parameter_builder.last_distance(),
+            RenderStyle::TotalDistance => render_parameter_builder.total_distance(),
         };
 
         let mut cell_grid = GridRefMut::new(GRID_SIZE, grid);
@@ -192,6 +193,7 @@ pub fn main_fs(
             RenderStyle::Iterations => render_parameter_builder.iterations(),
             RenderStyle::Arg => render_parameter_builder.arg(),
             RenderStyle::LastDistance => render_parameter_builder.last_distance(),
+            RenderStyle::TotalDistance => render_parameter_builder.total_distance(),
         };
         let mut cell_grid = GridRefMut::new(GRID_SIZE, grid);
         cell_grid.set(coord.as_uvec2(), render_parameters);
@@ -255,6 +257,7 @@ fn col_from_render_parameters(
             -t,
         ),
         RenderStyle::LastDistance => (period, t),
+        RenderStyle::TotalDistance => (period, t),
     };
     let x0 = render_parameters.x0 * period + t;
     let x1 = render_parameters.x1 * period + t;
@@ -301,6 +304,23 @@ impl<T: Mandelbrot> RenderParameterBuilder<'_, T> {
         let ds0 = zs[0].distance(zs[1].0);
         let ds1 = zs[1].distance(zs[2].0);
         RenderParameters::new(mandelbrot.inside, ds0, ds1, mandelbrot.h)
+    }
+
+    fn total_distance(self) -> RenderParameters {
+        let mut prev_z = Complex::ZERO;
+        let mut prev_dist = 0.0;
+        let mut dist = 0.0;
+        let mandelbrot = self.mandelbrot_input.iterate(self.constants, |z| {
+            prev_dist = dist;
+            dist += prev_z.distance(z.0);
+            prev_z = z;
+        });
+        RenderParameters::new(
+            mandelbrot.inside,
+            prev_dist.sqrt(),
+            dist.sqrt(),
+            mandelbrot.h,
+        )
     }
 }
 

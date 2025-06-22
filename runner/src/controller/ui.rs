@@ -198,6 +198,11 @@ impl Controller {
                     );
                     ui.end_row();
                     ui.radio_value(&mut self.render_style, RenderStyle::Arg, "Arg");
+                    ui.radio_value(
+                        &mut self.render_style,
+                        RenderStyle::TotalDistance,
+                        "Total Distance",
+                    );
                     ui.end_row();
                     if self.render_style != render_style {
                         self.cameras.mandelbrot.needs_reiterate = true;

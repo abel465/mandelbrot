@@ -2170,7 +2170,6 @@ dependencies = [
  "dashu",
  "easy-shader-runner",
  "glam",
- "log",
  "shared",
  "structopt",
  "wasm-bindgen-futures",
