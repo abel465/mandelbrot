@@ -272,13 +272,9 @@ struct RenderParameterBuilder<'a, T> {
 impl<T: Mandelbrot> RenderParameterBuilder<'_, T> {
     fn iterations(self) -> RenderParameters {
         let mandelbrot = self.mandelbrot_input.iterate(self.constants, |_| {});
-        if mandelbrot.inside {
-            RenderParameters::new_inside()
-        } else {
-            let x0 = mandelbrot.i as f32;
-            let x1 = (mandelbrot.i + 1) as f32;
-            RenderParameters::new_outside(x0, x1, mandelbrot.h.sqrt())
-        }
+        let x0 = mandelbrot.i as f32;
+        let x1 = (mandelbrot.i + 1) as f32;
+        RenderParameters::new(mandelbrot.inside, x0, x1, mandelbrot.h.sqrt())
     }
 
     fn arg(self) -> RenderParameters {
@@ -287,11 +283,12 @@ impl<T: Mandelbrot> RenderParameterBuilder<'_, T> {
             zs[0] = zs[1];
             zs[1] = z;
         });
-        if mandelbrot.inside {
-            RenderParameters::new_inside()
-        } else {
-            RenderParameters::new_outside(zs[0].arg(), zs[1].arg(), mandelbrot.h.sqrt())
-        }
+        RenderParameters::new(
+            mandelbrot.inside,
+            zs[0].arg(),
+            zs[1].arg(),
+            mandelbrot.h.sqrt(),
+        )
     }
 
     fn last_distance(self) -> RenderParameters {
@@ -301,13 +298,9 @@ impl<T: Mandelbrot> RenderParameterBuilder<'_, T> {
             zs[1] = zs[2];
             zs[2] = z;
         });
-        if mandelbrot.inside {
-            RenderParameters::new_inside()
-        } else {
-            let ds0 = zs[0].distance(zs[1].0);
-            let ds1 = zs[1].distance(zs[2].0);
-            RenderParameters::new_outside(ds0, ds1, mandelbrot.h)
-        }
+        let ds0 = zs[0].distance(zs[1].0);
+        let ds1 = zs[1].distance(zs[2].0);
+        RenderParameters::new(mandelbrot.inside, ds0, ds1, mandelbrot.h)
     }
 }
 

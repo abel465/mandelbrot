@@ -32,16 +32,9 @@ pub struct RenderParameters {
 }
 
 impl RenderParameters {
-    pub fn new_inside() -> Self {
+    pub fn new(inside: bool, x0: f32, x1: f32, h: f32) -> Self {
         Self {
-            inside: true.into(),
-            ..RenderParameters::default()
-        }
-    }
-
-    pub fn new_outside(x0: f32, x1: f32, h: f32) -> Self {
-        Self {
-            inside: false.into(),
+            inside: inside.into(),
             x0,
             x1,
             h,
