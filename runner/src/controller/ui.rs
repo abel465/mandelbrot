@@ -204,6 +204,8 @@ impl Controller {
                         "Total Distance",
                     );
                     ui.end_row();
+                    ui.radio_value(&mut self.render_style, RenderStyle::NormSum, "Norm Sum");
+                    ui.end_row();
                     if self.render_style != render_style {
                         self.cameras.mandelbrot.needs_reiterate = true;
                         self.cameras.julia.needs_reiterate = true;
