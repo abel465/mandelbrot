@@ -86,15 +86,15 @@ impl Controller {
             stats.total_distance += prev_z.distance(z.0);
             norm_sq = z.norm_squared();
             stats.last_norm_sq = norm_sq;
+            stats.count += 1;
+            stats.proximity = get_lerp_factor(prev_z.norm_squared(), norm_sq);
             if z.0 == prev_z.0 {
                 break;
             }
             self.iterations.points.push(z.0);
             if norm_sq >= 4.0 {
-                stats.count = i;
                 stats.last_distance = prev_z.distance(z.0);
                 stats.last_angle = z.arg();
-                stats.proximity = get_lerp_factor(prev_z.norm_squared(), norm_sq);
                 while norm_sq < 1e9 {
                     z = z * z + c;
                     norm_sq = z.norm_squared();
