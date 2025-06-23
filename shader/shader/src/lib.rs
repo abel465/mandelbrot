@@ -1,6 +1,5 @@
 #![no_std]
 
-use core::f32::consts::TAU;
 use push_constants::shader::*;
 use shared::complex::Complex;
 use shared::grid::*;
@@ -268,29 +267,23 @@ pub fn main_fs(
 
 fn col_from_render_parameters(
     constants: &FragmentConstants,
-    render_parameters: RenderParameters,
+    RenderParameters { inside, x0, x1, h }: RenderParameters,
 ) -> Vec3 {
-    if render_parameters.inside.into() {
+    if inside.into() {
         return Vec3::ZERO;
     }
     let period = constants.palette_period;
     let t = constants.animate_time;
     let (period, t) = match constants.render_style {
         RenderStyle::Iterations => (0.2 * period, -t),
-        RenderStyle::Arg => (
-            (1 << (constants.palette_period * 3.0) as u32) as f32 / TAU,
-            -t,
-        ),
+        RenderStyle::Arg => (period, -t),
         RenderStyle::LastDistance => (period, t),
         RenderStyle::TotalDistance => (period, t),
         RenderStyle::NormSum => (0.5 * period, t),
     };
-    let x0 = render_parameters.x0 * period + t;
-    let x1 = render_parameters.x1 * period + t;
-    let col0 = get_col(constants.palette, x0);
-    let col1 = get_col(constants.palette, x1);
-    let s = smoothstep(0.0, constants.smooth_factor, render_parameters.h);
-    col0.lerp(col1, s)
+    let s = smoothstep(0.0, constants.smooth_factor, h);
+    let x = x0.lerp(x1, s) * period + t;
+    get_col(constants.palette, x)
 }
 
 struct RenderParameterBuilder<'a, T> {
@@ -314,9 +307,9 @@ impl<T: Mandelbrot> RenderParameterBuilder<'_, T> {
         });
         RenderParameters::new(
             mandelbrot.inside,
-            zs[0].arg(),
-            zs[1].arg(),
-            mandelbrot.h.sqrt(),
+            zs[0].arg().abs(),
+            zs[1].arg().abs(),
+            mandelbrot.h,
         )
     }
 
