@@ -99,6 +99,7 @@ struct Iterations {
     points_buffer: Option<wgpu::Buffer>,
     recompute: bool,
     stats: IterationStats,
+    mode: IterationMode,
 }
 
 impl Default for Iterations {
@@ -111,6 +112,7 @@ impl Default for Iterations {
             points_buffer: None,
             recompute: false,
             stats: IterationStats::default(),
+            mode: IterationMode::default(),
         }
     }
 }
@@ -491,6 +493,8 @@ impl ControllerTrait for Controller {
             mandelbrot_num_ref_iterations: self.mandelbrot_reference.num_ref_iterations,
             needs_reiterate_mandelbrot: needs_reiterate_mandelbrot.into(),
             needs_reiterate_julia: needs_reiterate_julia.into(),
+            iteration_mode: self.iterations.mode,
+            padding: 0,
         }
     }
 

@@ -135,6 +135,23 @@ impl Mandelbrot for PerturbedMandelbrot<'_> {
     }
 }
 
+fn get_render_parameters<T: Mandelbrot>(
+    constants: &FragmentConstants,
+    mandelbrot_input: T,
+) -> RenderParameters {
+    let render_parameter_builder = RenderParameterBuilder {
+        constants,
+        mandelbrot_input,
+    };
+    match constants.render_style {
+        RenderStyle::Iterations => render_parameter_builder.iterations(),
+        RenderStyle::Arg => render_parameter_builder.arg(),
+        RenderStyle::LastDistance => render_parameter_builder.last_distance(),
+        RenderStyle::TotalDistance => render_parameter_builder.total_distance(),
+        RenderStyle::NormSum => render_parameter_builder.norm_sum(),
+    }
+}
+
 #[spirv(fragment)]
 pub fn main_fs(
     #[spirv(frag_coord)] frag_coord: Vec4,
@@ -161,24 +178,26 @@ pub fn main_fs(
     let is_julia = render_julia_set && coord.dot(n) > size.dot(n) * constants.render_split;
 
     let render_parameters = if constants.needs_reiterate_mandelbrot.into() && !is_julia {
-        let dc = ((coord - 0.5 * size) / size.y / mandelbrot_zoom).into();
-        let mandelbrot_input = PerturbedMandelbrot {
-            z0: Complex::ZERO,
-            dz: Complex::ZERO,
-            dc,
-            reference_points: mandelbrot_reference_points,
-            num_ref_iterations: constants.mandelbrot_num_ref_iterations as usize,
-        };
-        let render_parameter_builder = RenderParameterBuilder {
-            constants,
-            mandelbrot_input,
-        };
-        let render_parameters = match constants.render_style {
-            RenderStyle::Iterations => render_parameter_builder.iterations(),
-            RenderStyle::Arg => render_parameter_builder.arg(),
-            RenderStyle::LastDistance => render_parameter_builder.last_distance(),
-            RenderStyle::TotalDistance => render_parameter_builder.total_distance(),
-            RenderStyle::NormSum => render_parameter_builder.norm_sum(),
+        let dc = (coord - 0.5 * size) / size.y / mandelbrot_zoom;
+        let render_parameters = if constants.iteration_mode == IterationMode::Regular {
+            get_render_parameters(
+                constants,
+                RegularMandelbrot {
+                    z0: Complex::ZERO,
+                    c: (dc + constants.mandelbrot_camera_translate).into(),
+                },
+            )
+        } else {
+            get_render_parameters(
+                constants,
+                PerturbedMandelbrot {
+                    z0: Complex::ZERO,
+                    dz: Complex::ZERO,
+                    dc: dc.into(),
+                    reference_points: mandelbrot_reference_points,
+                    num_ref_iterations: constants.mandelbrot_num_ref_iterations as usize,
+                },
+            )
         };
 
         let mut cell_grid = GridRefMut::new(GRID_SIZE, grid);

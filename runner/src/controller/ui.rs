@@ -11,6 +11,12 @@ impl Controller {
         ui_state: &mut UiState,
         graphics_context: &easy_shader_runner::GraphicsContext,
     ) {
+        self.iterations.mode = if self.cameras.mandelbrot.zoom > 1000.0 {
+            IterationMode::Perturbation
+        } else {
+            IterationMode::Regular
+        };
+
         if let Some(pos) = self.context_menu {
             self.context_menu_window(ctx, pos);
         }
@@ -30,7 +36,9 @@ impl Controller {
         if self.debug {
             self.debug_window(ctx);
         }
-        if self.cameras.mandelbrot.needs_reiterate {
+        if self.cameras.mandelbrot.needs_reiterate
+            && matches!(self.iterations.mode, IterationMode::Perturbation)
+        {
             self.recompute_reference_iterations(graphics_context);
         }
     }
@@ -372,6 +380,10 @@ impl Controller {
                 egui::Grid::new("debug_grid").show(ui, |ui| {
                     ui.label("max iterations");
                     ui.monospace(format!("{:.2}", self.num_iterations));
+                    ui.end_row();
+
+                    ui.label("iteration mode");
+                    ui.monospace(format!("{:?}", self.iterations.mode));
                     ui.end_row();
 
                     if self.iterations.enabled {

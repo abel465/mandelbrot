@@ -48,6 +48,14 @@ impl RenderParameters {
     }
 }
 
+#[derive(Copy, Clone, Debug, NoUninit, Default, PartialEq)]
+#[repr(u32)]
+pub enum IterationMode {
+    #[default]
+    Regular,
+    Perturbation,
+}
+
 #[derive(Copy, Clone, Debug, NoUninit)]
 #[repr(C)]
 pub struct FragmentConstants {
@@ -74,4 +82,6 @@ pub struct FragmentConstants {
     pub mandelbrot_num_ref_iterations: u32,
     pub needs_reiterate_mandelbrot: Bool,
     pub needs_reiterate_julia: Bool,
+    pub iteration_mode: IterationMode,
+    pub padding: u32,
 }
