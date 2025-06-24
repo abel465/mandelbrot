@@ -75,23 +75,11 @@ impl Mandelbrot for RegularMandelbrot {
             norm_sq = z.norm_squared();
             i += 1;
             f(z);
-            if i == num_iters
-                && (norm_sq < 4.0
-                    || get_lerp_factor(prev_norm_sq, norm_sq) > constants.num_iterations.fract())
-            {
-                return MandelbrotResult {
-                    inside: true,
-                    i,
-                    h: constants.num_iterations.fract(),
-                };
-            }
         }
 
-        MandelbrotResult {
-            inside: false,
-            i,
-            h: get_lerp_factor(prev_norm_sq, norm_sq),
-        }
+        let h = get_proximity(prev_norm_sq.sqrt(), norm_sq.sqrt());
+        let inside = i == num_iters && (norm_sq < 4.0 || h > constants.num_iterations.fract());
+        MandelbrotResult { inside, i, h }
     }
 }
 
@@ -138,23 +126,11 @@ impl Mandelbrot for PerturbedMandelbrot<'_> {
                 dz = z;
                 ref_i = 0;
             }
-            if i == num_iters
-                && (norm_sq < 4.0
-                    || get_lerp_factor(prev_norm_sq, norm_sq) > constants.num_iterations.fract())
-            {
-                return MandelbrotResult {
-                    inside: true,
-                    i,
-                    h: constants.num_iterations.fract(),
-                };
-            }
         }
 
-        MandelbrotResult {
-            inside: false,
-            i,
-            h: get_lerp_factor(prev_norm_sq, norm_sq),
-        }
+        let h = get_proximity(prev_norm_sq.sqrt(), norm_sq.sqrt());
+        let inside = i == num_iters && (norm_sq < 4.0 || h > constants.num_iterations.fract());
+        MandelbrotResult { inside, i, h }
     }
 }
 
@@ -309,7 +285,11 @@ fn col_from_render_parameters(
         RenderStyle::TotalDistance => (period, t),
         RenderStyle::NormSum => (0.5 * period, t),
     };
-    let s = smoothstep(0.0, constants.smooth_factor, h);
+    let s = if inside {
+        constants.num_iterations.fract() * constants.smooth_factor
+    } else {
+        smoothstep(0.0, constants.smooth_factor, h)
+    };
     let x = x0.lerp(x1, s) * period + t;
     get_col(constants.palette, x)
 }
@@ -324,7 +304,7 @@ impl<T: Mandelbrot> RenderParameterBuilder<'_, T> {
         let mandelbrot = self.mandelbrot_input.iterate(self.constants, |_| {});
         let x0 = mandelbrot.i as f32;
         let x1 = (mandelbrot.i + 1) as f32;
-        RenderParameters::new(mandelbrot.inside, x0, x1, mandelbrot.h.sqrt())
+        RenderParameters::new(mandelbrot.inside, x0, x1, mandelbrot.h)
     }
 
     fn arg(self) -> RenderParameters {

@@ -79,7 +79,7 @@ impl Camera {
 
 #[derive(Clone, Copy, Default)]
 struct IterationStats {
-    last_norm_sq: f32,
+    last_norm: f32,
     last_distance: f32,
     last_angle: f32,
     total_angle: f32,

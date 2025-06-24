@@ -85,27 +85,29 @@ impl Controller {
         let mut stats = super::IterationStats::default();
         let mut prev_z = Complex::new(-1.0, 0.0);
         let mut prev_prev_z;
-        let mut norm_sq;
+        let mut prev_norm;
+        let mut norm = 0.0;
         for i in 0..self.num_iterations as u32 {
             prev_prev_z = prev_z;
             prev_z = z;
             z = z * z + c;
             stats.total_angle += angle_between_three_points(prev_prev_z.0, prev_z.0, z.0);
             stats.total_distance += prev_z.distance(z.0);
-            norm_sq = z.norm_squared();
-            stats.last_norm_sq = norm_sq;
-            stats.count += 1;
-            stats.proximity = get_lerp_factor(prev_z.norm_squared(), norm_sq);
+            prev_norm = norm;
+            norm = z.norm();
             if z.0 == prev_z.0 {
                 break;
             }
             self.iterations.points.push(z.0);
-            if norm_sq >= 4.0 {
+            if norm >= 2.0 {
                 stats.last_distance = prev_z.distance(z.0);
                 stats.last_angle = z.arg();
-                while norm_sq < 1e9 {
+                stats.count = i;
+                stats.last_norm = norm;
+                stats.proximity = get_proximity(prev_norm, norm);
+                while norm < 1e4 {
                     z = z * z + c;
-                    norm_sq = z.norm_squared();
+                    norm = z.norm();
                     self.iterations.points.push(z.0);
                 }
                 break;
@@ -113,6 +115,9 @@ impl Controller {
             if i + 1 == self.num_iterations as u32 {
                 stats.last_distance = prev_z.distance(z.0);
                 stats.last_angle = z.arg();
+                stats.count = i;
+                stats.last_norm = norm;
+                stats.proximity = get_proximity(prev_norm, norm);
             }
         }
         self.iterations.stats = stats;
@@ -423,8 +428,8 @@ impl Controller {
                         ui.monospace(format!("{:.2}", self.iterations.stats.count));
                         ui.end_row();
 
-                        ui.label("last |z|²");
-                        ui.monospace(format!("{:.4}", self.iterations.stats.last_norm_sq));
+                        ui.label("last |z|");
+                        ui.monospace(format!("{:.4}", self.iterations.stats.last_norm));
                         ui.end_row();
 
                         ui.label("last angle");
