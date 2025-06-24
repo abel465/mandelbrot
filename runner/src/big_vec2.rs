@@ -121,7 +121,7 @@ impl Div<f64> for BigVec2 {
 
 impl std::fmt::Display for BigVec2 {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "Vec2Big(")?;
+        write!(f, "BigVec2(")?;
         self.x.fmt(f)?;
         write!(f, ", ")?;
         self.y.fmt(f)?;

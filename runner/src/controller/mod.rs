@@ -200,9 +200,19 @@ impl Default for MandelbrotReference {
     }
 }
 
+#[derive(Default)]
+struct DeltaParams {
+    iterations: f64,
+    period: f64,
+    zoom: f64,
+    translate: DVec2,
+    animation_speed: f64,
+}
+
 pub struct Controller {
     size: UVec2,
     start: Instant,
+    last_instant: Instant,
     cursor: DVec2,
     prev_cursor: DVec2,
     mouse_button_pressed: u32,
@@ -219,9 +229,10 @@ pub struct Controller {
     animate: Animate,
     show_fps: bool,
     render_style: RenderStyle,
-    additional_iterations: u32,
+    additional_iterations: f64,
     mandelbrot_reference: MandelbrotReference,
     render_partitioning: RenderPartitioning,
+    delta_params: DeltaParams,
 }
 
 impl Controller {
@@ -230,17 +241,18 @@ impl Controller {
             MAX_ITER_POINTS
                 >= calculate_num_iterations(MAX_ZOOM, MAX_ADDITIONAL_ITERS as f64) as u32
         );
-        let additional_iterations = 25;
+        let additional_iterations = 25.0;
         let cameras = Cameras::default();
         Self {
             size: UVec2::ZERO,
             start: Instant::now(),
+            last_instant: Instant::now(),
             cursor: DVec2::ZERO,
             prev_cursor: DVec2::ZERO,
             mouse_button_pressed: 0,
             num_iterations: calculate_num_iterations(
                 cameras.mandelbrot.zoom,
-                additional_iterations as f64,
+                additional_iterations,
             ),
             cameras,
             debug: options.debug,
@@ -257,6 +269,7 @@ impl Controller {
             additional_iterations,
             mandelbrot_reference: MandelbrotReference::default(),
             render_partitioning: RenderPartitioning::default(),
+            delta_params: DeltaParams::default(),
         }
     }
 
@@ -338,26 +351,116 @@ impl ControllerTrait for Controller {
 
     fn keyboard_input(&mut self, key: KeyEvent) {
         if !key.state.is_pressed() {
+            match key.logical_key {
+                Key::Named(winit::keyboard::NamedKey::ArrowDown) => {
+                    self.delta_params.translate.y = self.delta_params.translate.y.min(0.0);
+                }
+                Key::Named(winit::keyboard::NamedKey::ArrowUp) => {
+                    self.delta_params.translate.y = self.delta_params.translate.y.max(0.0);
+                }
+                Key::Named(winit::keyboard::NamedKey::ArrowLeft) => {
+                    self.delta_params.translate.x = self.delta_params.translate.x.max(0.0);
+                }
+                Key::Named(winit::keyboard::NamedKey::ArrowRight) => {
+                    self.delta_params.translate.x = self.delta_params.translate.x.min(0.0);
+                }
+                Key::Character(c) => {
+                    let c = c.chars().next().unwrap();
+                    match c {
+                        'z' => {
+                            if self.delta_params.zoom > 1.0 {
+                                self.delta_params.zoom = 0.0;
+                            }
+                        }
+                        'x' => {
+                            if self.delta_params.zoom < 1.0 {
+                                self.delta_params.zoom = 0.0;
+                            }
+                        }
+                        'p' => {
+                            if self.delta_params.period > 1.0 {
+                                self.delta_params.period = 0.0;
+                            }
+                        }
+                        'o' => {
+                            if self.delta_params.period < 1.0 {
+                                self.delta_params.period = 0.0;
+                            }
+                        }
+                        'j' => {
+                            if self.delta_params.animation_speed < 1.0 {
+                                self.delta_params.animation_speed = 0.0;
+                            }
+                        }
+                        'l' => {
+                            if self.delta_params.animation_speed > 1.0 {
+                                self.delta_params.animation_speed = 0.0;
+                            }
+                        }
+                        'u' => {
+                            self.delta_params.iterations = self.delta_params.iterations.max(0.0);
+                        }
+                        'i' => {
+                            self.delta_params.iterations = self.delta_params.iterations.min(0.0);
+                        }
+                        _ => {}
+                    }
+                }
+                _ => {}
+            }
             return;
         }
+        let move_speed = 0.2;
         match key.logical_key {
+            Key::Named(winit::keyboard::NamedKey::ArrowDown) => {
+                self.delta_params.translate.y = move_speed;
+            }
+            Key::Named(winit::keyboard::NamedKey::ArrowUp) => {
+                self.delta_params.translate.y = -move_speed;
+            }
+            Key::Named(winit::keyboard::NamedKey::ArrowLeft) => {
+                self.delta_params.translate.x = -move_speed;
+            }
+            Key::Named(winit::keyboard::NamedKey::ArrowRight) => {
+                self.delta_params.translate.x = move_speed;
+            }
             Key::Character(c) => {
                 let c = c.chars().next().unwrap();
                 match c {
                     'z' | 'x' => {
-                        self.cameras.mandelbrot.zoom *= match c {
-                            'z' => 2.0,
-                            'x' => 0.5,
+                        let z = 1.4;
+                        self.delta_params.zoom = match c {
+                            'z' => z,
+                            'x' => 1.0 / z,
                             _ => unreachable!(),
                         };
-                        self.cameras.mandelbrot.needs_reiterate = true;
-                        self.cameras.julia.needs_reiterate = true;
-                        self.mandelbrot_reference.recompute = true;
-                        self.iterations.recompute = self.iterations.enabled;
-                        self.num_iterations = calculate_num_iterations(
-                            self.cameras.mandelbrot.zoom,
-                            self.additional_iterations as f64,
-                        );
+                    }
+                    'p' | 'o' => {
+                        let z = 1.2;
+                        self.delta_params.period = match c {
+                            'p' => z,
+                            'o' => 1.0 / z,
+                            _ => unreachable!(),
+                        };
+                    }
+                    'k' => {
+                        self.animate.enable = !self.animate.enable;
+                    }
+                    'j' | 'l' => {
+                        let z = 2.0;
+                        self.delta_params.animation_speed = match c {
+                            'l' => z,
+                            'j' => 1.0 / z,
+                            _ => unreachable!(),
+                        };
+                    }
+                    'u' | 'i' => {
+                        let z = 5.0;
+                        self.delta_params.iterations = match c {
+                            'u' => -z,
+                            'i' => z,
+                            _ => unreachable!(),
+                        };
                     }
                     _ => {}
                 }

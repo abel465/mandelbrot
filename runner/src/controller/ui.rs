@@ -3,6 +3,7 @@ use easy_shader_runner::{egui, UiState};
 use glam::*;
 use push_constants::shader::*;
 use shared::*;
+use web_time::Instant;
 
 impl Controller {
     pub fn ui_impl(
@@ -11,6 +12,7 @@ impl Controller {
         ui_state: &mut UiState,
         graphics_context: &easy_shader_runner::GraphicsContext,
     ) {
+        self.handle_param_deltas();
         self.iterations.mode = if self.cameras.mandelbrot.zoom > 1000.0 {
             IterationMode::Perturbation
         } else {
@@ -127,6 +129,46 @@ impl Controller {
                 self.iterations.points_buffer.as_ref().unwrap(),
                 0,
                 bytemuck::cast_slice(&self.iterations.points),
+            );
+        }
+    }
+
+    fn handle_param_deltas(&mut self) {
+        let dt = self.last_instant.elapsed().as_secs_f64();
+        self.last_instant = Instant::now();
+        if self.delta_params.zoom != 0.0 {
+            self.cameras.mandelbrot.zoom *= (self.delta_params.zoom - 1.0) * dt + 1.0;
+            self.cameras.mandelbrot.needs_reiterate = true;
+            self.cameras.julia.needs_reiterate = true;
+            self.mandelbrot_reference.recompute = true;
+            self.iterations.recompute = self.iterations.enabled;
+            self.num_iterations = super::calculate_num_iterations(
+                self.cameras.mandelbrot.zoom,
+                self.additional_iterations as f64,
+            );
+        }
+        if self.delta_params.translate.x != 0.0 || self.delta_params.translate.y != 0.0 {
+            self.cameras.mandelbrot.translate +=
+                self.delta_params.translate / self.cameras.mandelbrot.zoom * dt;
+            self.cameras.mandelbrot.needs_reiterate = true;
+            self.mandelbrot_reference.recompute = true;
+        }
+        if self.delta_params.period != 0.0 {
+            self.palette_period *= (self.delta_params.period as f32 - 1.0) * dt as f32 + 1.0;
+        }
+        if self.delta_params.animation_speed != 0.0 {
+            self.animate.speed *=
+                (self.delta_params.animation_speed as f32 - 1.0) * dt as f32 + 1.0;
+        }
+        if self.delta_params.iterations != 0.0 {
+            self.additional_iterations += self.delta_params.iterations * dt;
+            self.cameras.mandelbrot.needs_reiterate = true;
+            self.cameras.julia.needs_reiterate = true;
+            self.mandelbrot_reference.recompute = true;
+            self.iterations.recompute = self.iterations.enabled;
+            self.num_iterations = super::calculate_num_iterations(
+                self.cameras.mandelbrot.zoom,
+                self.additional_iterations as f64,
             );
         }
     }
@@ -270,7 +312,7 @@ impl Controller {
                 if ui
                     .add(egui::Slider::new(
                         &mut self.additional_iterations,
-                        0..=super::MAX_ADDITIONAL_ITERS,
+                        0.0..=super::MAX_ADDITIONAL_ITERS as f64,
                     ))
                     .changed()
                 {
