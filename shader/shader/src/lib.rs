@@ -279,11 +279,11 @@ fn col_from_render_parameters(
     let period = constants.palette_period;
     let t = constants.animate_time;
     let (period, t) = match constants.render_style {
-        RenderStyle::Iterations => (0.2 * period, -t),
+        RenderStyle::Iterations => (0.3 * period, -t),
         RenderStyle::Arg => (period, -t),
         RenderStyle::LastDistance => (period, t),
-        RenderStyle::TotalDistance => (period, t),
-        RenderStyle::NormSum => (0.5 * period, t),
+        RenderStyle::TotalDistance => (0.2 * period, t),
+        RenderStyle::NormSum => (0.3 * period, t),
     };
     let s = if inside {
         constants.num_iterations.fract() * constants.smooth_factor
@@ -342,12 +342,7 @@ impl<T: Mandelbrot> RenderParameterBuilder<'_, T> {
             dist += prev_z.distance(z.0);
             prev_z = z;
         });
-        RenderParameters::new(
-            mandelbrot.inside,
-            prev_dist.sqrt(),
-            dist.sqrt(),
-            mandelbrot.h,
-        )
+        RenderParameters::new(mandelbrot.inside, prev_dist, dist, mandelbrot.h)
     }
 
     fn norm_sum(self) -> RenderParameters {
