@@ -162,6 +162,36 @@ impl Controller {
         }
     }
 
+    fn render_partition_ui(&mut self, ui: &mut egui::Ui) {
+        ui.vertical_centered(|ui| {
+            ui.label(egui::RichText::new("Render Partitioning").size(15.0));
+        });
+        egui::Grid::new("render_partitioning_grid").show(ui, |ui| {
+            let render_partioning = self.render_partitioning;
+            ui.radio_value(
+                &mut self.render_partitioning,
+                RenderPartitioning::Outside,
+                "Outside",
+            );
+            ui.radio_value(
+                &mut self.render_partitioning,
+                RenderPartitioning::Inside,
+                "Inside",
+            );
+            ui.end_row();
+            ui.radio_value(
+                &mut self.render_partitioning,
+                RenderPartitioning::Both,
+                "Both",
+            );
+            ui.end_row();
+            if self.render_partitioning != render_partioning {
+                self.cameras.mandelbrot.needs_reiterate = true;
+                self.cameras.julia.needs_reiterate = true;
+            }
+        });
+    }
+
     fn main_window(
         &mut self,
         ctx: &egui::Context,
@@ -226,6 +256,8 @@ impl Controller {
                         self.cameras.julia.needs_reiterate = true;
                     }
                 });
+                ui.separator();
+                self.render_partition_ui(ui);
                 ui.separator();
                 ui.vertical_centered(|ui| {
                     ui.label(egui::RichText::new("Additional Iterations").size(14.0));

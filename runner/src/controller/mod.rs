@@ -32,10 +32,7 @@ impl Cameras {
 impl Default for Cameras {
     fn default() -> Self {
         Self {
-            julia: Camera::new(
-                0.25,
-                BigVec2::from_f64s(0.0, 0.0).with_precision(PRECISION),
-            ),
+            julia: Camera::new(0.25, BigVec2::from_f64s(0.0, 0.0).with_precision(PRECISION)),
             mandelbrot: Camera::new(
                 0.3,
                 BigVec2::from_f64s(-0.75, 0.0).with_precision(PRECISION),
@@ -224,6 +221,7 @@ pub struct Controller {
     render_style: RenderStyle,
     additional_iterations: u32,
     mandelbrot_reference: MandelbrotReference,
+    render_partitioning: RenderPartitioning,
 }
 
 impl Controller {
@@ -258,6 +256,7 @@ impl Controller {
             render_style: RenderStyle::default(),
             additional_iterations,
             mandelbrot_reference: MandelbrotReference::default(),
+            render_partitioning: RenderPartitioning::default(),
         }
     }
 
@@ -494,7 +493,7 @@ impl ControllerTrait for Controller {
             needs_reiterate_mandelbrot: needs_reiterate_mandelbrot.into(),
             needs_reiterate_julia: needs_reiterate_julia.into(),
             iteration_mode: self.iterations.mode,
-            padding: 0,
+            render_partitioning: self.render_partitioning,
         }
     }
 

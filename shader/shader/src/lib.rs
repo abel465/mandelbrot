@@ -75,11 +75,23 @@ impl Mandelbrot for RegularMandelbrot {
             norm_sq = z.norm_squared();
             i += 1;
             f(z);
+            if i == num_iters
+                && (norm_sq < 4.0
+                    || get_lerp_factor(prev_norm_sq, norm_sq) > constants.num_iterations.fract())
+            {
+                return MandelbrotResult {
+                    inside: true,
+                    i,
+                    h: constants.num_iterations.fract(),
+                };
+            }
         }
 
-        let h = get_lerp_factor(prev_norm_sq, norm_sq);
-        let inside = norm_sq < 4.0 || i == num_iters && constants.num_iterations.fract() < h;
-        MandelbrotResult { inside, i, h }
+        MandelbrotResult {
+            inside: false,
+            i,
+            h: get_lerp_factor(prev_norm_sq, norm_sq),
+        }
     }
 }
 
@@ -126,11 +138,23 @@ impl Mandelbrot for PerturbedMandelbrot<'_> {
                 dz = z;
                 ref_i = 0;
             }
+            if i == num_iters
+                && (norm_sq < 4.0
+                    || get_lerp_factor(prev_norm_sq, norm_sq) > constants.num_iterations.fract())
+            {
+                return MandelbrotResult {
+                    inside: true,
+                    i,
+                    h: constants.num_iterations.fract(),
+                };
+            }
         }
 
-        let h = get_lerp_factor(prev_norm_sq, norm_sq);
-        let inside = norm_sq < 4.0 || i == num_iters && constants.num_iterations.fract() < h;
-        MandelbrotResult { inside, i, h }
+        MandelbrotResult {
+            inside: false,
+            i,
+            h: get_lerp_factor(prev_norm_sq, norm_sq),
+        }
     }
 }
 
@@ -269,7 +293,11 @@ fn col_from_render_parameters(
     constants: &FragmentConstants,
     RenderParameters { inside, x0, x1, h }: RenderParameters,
 ) -> Vec3 {
-    if inside.into() {
+    let inside: bool = inside.into();
+    if inside && constants.render_partitioning == RenderPartitioning::Outside {
+        return Vec3::ZERO;
+    }
+    if !inside && constants.render_partitioning == RenderPartitioning::Inside {
         return Vec3::ZERO;
     }
     let period = constants.palette_period;
