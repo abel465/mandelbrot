@@ -6,9 +6,9 @@ use bytemuck::NoUninit;
 pub enum RenderStyle {
     #[default]
     Iterations,
-    Arg,
-    LastDistance,
-    TotalDistance,
+    FinalAngle,
+    FinalDistance,
+    DistanceSum,
     NormSum,
 }
 

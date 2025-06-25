@@ -285,15 +285,19 @@ impl Controller {
                     );
                     ui.radio_value(
                         &mut self.render_style,
-                        RenderStyle::LastDistance,
-                        "Last Distance",
+                        RenderStyle::FinalDistance,
+                        "Final Distance",
                     );
                     ui.end_row();
-                    ui.radio_value(&mut self.render_style, RenderStyle::Arg, "Arg");
                     ui.radio_value(
                         &mut self.render_style,
-                        RenderStyle::TotalDistance,
-                        "Total Distance",
+                        RenderStyle::FinalAngle,
+                        "Final Angle",
+                    );
+                    ui.radio_value(
+                        &mut self.render_style,
+                        RenderStyle::DistanceSum,
+                        "Distance Sum",
                     );
                     ui.end_row();
                     ui.radio_value(&mut self.render_style, RenderStyle::NormSum, "Norm Sum");

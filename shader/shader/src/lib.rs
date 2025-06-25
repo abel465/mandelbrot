@@ -144,9 +144,9 @@ fn get_render_parameters<T: Mandelbrot>(
     };
     match constants.render_style {
         RenderStyle::Iterations => render_parameter_builder.iterations(),
-        RenderStyle::Arg => render_parameter_builder.arg(),
-        RenderStyle::LastDistance => render_parameter_builder.last_distance(),
-        RenderStyle::TotalDistance => render_parameter_builder.total_distance(),
+        RenderStyle::FinalAngle => render_parameter_builder.arg(),
+        RenderStyle::FinalDistance => render_parameter_builder.last_distance(),
+        RenderStyle::DistanceSum => render_parameter_builder.total_distance(),
         RenderStyle::NormSum => render_parameter_builder.norm_sum(),
     }
 }
@@ -207,18 +207,7 @@ pub fn main_fs(
             + constants.julia_camera_translate)
             .into();
         let c: Complex = constants.marker.into();
-        let mandelbrot_input = RegularMandelbrot { z0, c };
-        let render_parameter_builder = RenderParameterBuilder {
-            constants,
-            mandelbrot_input,
-        };
-        let render_parameters = match constants.render_style {
-            RenderStyle::Iterations => render_parameter_builder.iterations(),
-            RenderStyle::Arg => render_parameter_builder.arg(),
-            RenderStyle::LastDistance => render_parameter_builder.last_distance(),
-            RenderStyle::TotalDistance => render_parameter_builder.total_distance(),
-            RenderStyle::NormSum => render_parameter_builder.norm_sum(),
-        };
+        let render_parameters = get_render_parameters(constants, RegularMandelbrot { z0, c });
         let mut cell_grid = GridRefMut::new(GRID_SIZE, grid);
         cell_grid.set(coord.as_uvec2(), render_parameters);
         render_parameters
@@ -280,9 +269,9 @@ fn col_from_render_parameters(
     let t = constants.animate_time;
     let (period, t) = match constants.render_style {
         RenderStyle::Iterations => (0.3 * period, -t),
-        RenderStyle::Arg => (period, -t),
-        RenderStyle::LastDistance => (period, t),
-        RenderStyle::TotalDistance => (0.2 * period, t),
+        RenderStyle::FinalAngle => (period, -t),
+        RenderStyle::FinalDistance => (period, t),
+        RenderStyle::DistanceSum => (0.2 * period, t),
         RenderStyle::NormSum => (0.3 * period, t),
     };
     let s = if inside {
