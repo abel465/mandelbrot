@@ -97,9 +97,7 @@ impl Controller {
             stats.distance_sum += prev_z.distance(z.0);
             prev_norm = norm;
             norm = z.norm();
-            if z.0 == prev_z.0 {
-                break;
-            }
+            stats.norm_sum += norm;
             self.iterations.points.push(z.0);
             if norm >= 2.0 {
                 stats.final_distance = prev_z.distance(z.0);
@@ -487,6 +485,7 @@ impl Controller {
                 });
                 if self.iterations.enabled {
                     egui::Grid::new("iterations_debug_grid").show(ui, |ui| {
+                        let count = self.iterations.stats.count as f32;
                         ui.label("");
                         ui.label("final");
                         ui.label("sum");
@@ -494,17 +493,18 @@ impl Controller {
                         ui.end_row();
                         ui.label("|z|");
                         ui.monospace(format!("{:.4}", self.iterations.stats.final_norm));
-                        ui.label("");
-                        ui.label("");
+                        ui.monospace(format!("{:.4}", self.iterations.stats.norm_sum));
+                        ui.monospace(format!("{:.4}", self.iterations.stats.norm_sum / count));
                         ui.end_row();
                         ui.label("angle");
                         ui.monospace(format!("{:.4}", self.iterations.stats.final_angle));
                         ui.monospace(format!("{:.4}", self.iterations.stats.angle_sum));
-                        ui.label("");
+                        ui.monospace(format!("{:.4}", self.iterations.stats.angle_sum / count));
                         ui.end_row();
                         ui.label("distance");
                         ui.monospace(format!("{:.4}", self.iterations.stats.final_distance));
                         ui.monospace(format!("{:.4}", self.iterations.stats.distance_sum));
+                        ui.monospace(format!("{:.4}", self.iterations.stats.distance_sum / count));
                         ui.end_row();
                     });
                 }

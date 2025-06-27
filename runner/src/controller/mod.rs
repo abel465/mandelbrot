@@ -84,6 +84,7 @@ struct IterationStats {
     final_angle: f32,
     angle_sum: f32,
     distance_sum: f32,
+    norm_sum: f32,
     proximity: f32, // normalized proximity to the next iteration
     count: u32,
 }
