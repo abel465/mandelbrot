@@ -1,4 +1,5 @@
 use super::*;
+use crate::*;
 use bytemuck::NoUninit;
 
 #[derive(Copy, Clone, Debug, NoUninit, Default, PartialEq)]
@@ -31,20 +32,34 @@ pub enum Palette {
 #[derive(Copy, Clone, Debug, NoUninit, Default)]
 #[repr(C)]
 pub struct RenderParameters {
-    pub inside: Bool,
-    pub x0: f32,
-    pub x1: f32,
-    pub h: f32,
+    pub i: u32,
+    pub x: f32,
 }
 
 impl RenderParameters {
-    pub fn new(inside: bool, x0: f32, x1: f32, h: f32) -> Self {
-        Self {
-            inside: inside.into(),
-            x0,
-            x1,
-            h,
-        }
+    pub fn new(
+        constants: &FragmentConstants,
+        inside: bool,
+        i: u32,
+        h: f32,
+        x0: f32,
+        x1: f32,
+    ) -> Self {
+        let i = if (inside && constants.render_partitioning == RenderPartitioning::Outside)
+            || (!inside && constants.render_partitioning == RenderPartitioning::Inside)
+        {
+            core::u32::MAX
+        } else {
+            i
+        };
+        let s = if inside {
+            constants.num_iterations.fract() * constants.smooth_factor
+        } else {
+            smoothstep(0.0, constants.smooth_factor, h)
+        };
+        let x = x0.lerp(x1, s);
+
+        Self { i, x }
     }
 }
 

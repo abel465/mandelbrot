@@ -331,10 +331,16 @@ impl Controller {
                 };
                 ui.separator();
                 ui.toggle_value(&mut self.smooth.enable, "Smooth");
-                ui.add_enabled(
-                    self.smooth.enable,
-                    egui::Slider::new(&mut self.smooth.value, 0.0..=1.0),
-                );
+                if ui
+                    .add_enabled(
+                        self.smooth.enable,
+                        egui::Slider::new(&mut self.smooth.value, 0.0..=1.0),
+                    )
+                    .changed()
+                {
+                    self.cameras.mandelbrot.needs_reiterate = true;
+                    self.cameras.julia.needs_reiterate = true;
+                }
                 ui.horizontal(|ui| {
                     ui.toggle_value(&mut self.animate.enable, "Animate");
                     if ui

@@ -16,13 +16,6 @@ pub fn lerp(x: f32, y: f32, a: f32) -> f32 {
     x * (1.0 - a) + y * a
 }
 
-pub fn smoothstep(edge0: f32, edge1: f32, x: f32) -> f32 {
-    // Scale, bias and saturate x to 0..1 range
-    let x = ((x - edge0) / (edge1 - edge0)).clamp(0.0, 1.0);
-    // Evaluate polynomial
-    x * x * (3.0 - 2.0 * x)
-}
-
 fn get_col(palette: Palette, x: f32) -> Vec3 {
     match palette {
         Palette::RGB => palette::rgb(x),
@@ -256,13 +249,9 @@ pub fn main_fs(
 
 fn col_from_render_parameters(
     constants: &FragmentConstants,
-    RenderParameters { inside, x0, x1, h }: RenderParameters,
+    RenderParameters { i, x }: RenderParameters,
 ) -> Vec3 {
-    let inside: bool = inside.into();
-    if inside && constants.render_partitioning == RenderPartitioning::Outside {
-        return Vec3::ZERO;
-    }
-    if !inside && constants.render_partitioning == RenderPartitioning::Inside {
+    if i == core::u32::MAX {
         return Vec3::ZERO;
     }
     let period = constants.palette_period;
@@ -274,13 +263,7 @@ fn col_from_render_parameters(
         RenderStyle::DistanceSum => (0.2 * period, t),
         RenderStyle::NormSum => (0.3 * period, t),
     };
-    let s = if inside {
-        constants.num_iterations.fract() * constants.smooth_factor
-    } else {
-        smoothstep(0.0, constants.smooth_factor, h)
-    };
-    let x = x0.lerp(x1, s) * period + t;
-    get_col(constants.palette, x)
+    get_col(constants.palette, x * period + t)
 }
 
 struct RenderParameterBuilder<'a, T> {
@@ -290,58 +273,60 @@ struct RenderParameterBuilder<'a, T> {
 
 impl<T: Mandelbrot> RenderParameterBuilder<'_, T> {
     fn iterations(self) -> RenderParameters {
-        let mandelbrot = self.mandelbrot_input.iterate(self.constants, |_| {});
-        let x0 = mandelbrot.i as f32;
-        let x1 = (mandelbrot.i + 1) as f32;
-        RenderParameters::new(mandelbrot.inside, x0, x1, mandelbrot.h)
+        let MandelbrotResult { inside, i, h } =
+            self.mandelbrot_input.iterate(self.constants, |_| {});
+        let x0 = (i - 1) as f32;
+        let x1 = i as f32;
+        RenderParameters::new(self.constants, inside, i, h, x0, x1)
     }
 
     fn arg(self) -> RenderParameters {
         let mut zs = [Complex::ZERO, self.mandelbrot_input.z0()];
-        let mandelbrot = self.mandelbrot_input.iterate(self.constants, |z| {
-            zs[0] = zs[1];
-            zs[1] = z;
-        });
-        RenderParameters::new(
-            mandelbrot.inside,
-            zs[0].arg().abs(),
-            zs[1].arg().abs(),
-            mandelbrot.h,
-        )
+        let MandelbrotResult { inside, i, h } =
+            self.mandelbrot_input.iterate(self.constants, |z| {
+                zs[0] = zs[1];
+                zs[1] = z;
+            });
+        let angle0 = zs[0].arg().abs();
+        let angle1 = zs[1].arg().abs();
+        RenderParameters::new(self.constants, inside, i, h, angle0, angle1)
     }
 
     fn last_distance(self) -> RenderParameters {
         let mut zs = [Complex::ZERO, Complex::ZERO, self.mandelbrot_input.z0()];
-        let mandelbrot = self.mandelbrot_input.iterate(self.constants, |z| {
-            zs[0] = zs[1];
-            zs[1] = zs[2];
-            zs[2] = z;
-        });
+        let MandelbrotResult { inside, i, h } =
+            self.mandelbrot_input.iterate(self.constants, |z| {
+                zs[0] = zs[1];
+                zs[1] = zs[2];
+                zs[2] = z;
+            });
         let ds0 = zs[0].distance(zs[1].0);
         let ds1 = zs[1].distance(zs[2].0);
-        RenderParameters::new(mandelbrot.inside, ds0, ds1, mandelbrot.h)
+        RenderParameters::new(self.constants, inside, i, h, ds0, ds1)
     }
 
     fn total_distance(self) -> RenderParameters {
         let mut prev_z = Complex::ZERO;
         let mut prev_dist = 0.0;
         let mut dist = 0.0;
-        let mandelbrot = self.mandelbrot_input.iterate(self.constants, |z| {
-            prev_dist = dist;
-            dist += prev_z.distance(z.0);
-            prev_z = z;
-        });
-        RenderParameters::new(mandelbrot.inside, prev_dist, dist, mandelbrot.h)
+        let MandelbrotResult { inside, i, h } =
+            self.mandelbrot_input.iterate(self.constants, |z| {
+                prev_dist = dist;
+                dist += prev_z.distance(z.0);
+                prev_z = z;
+            });
+        RenderParameters::new(self.constants, inside, i, h, prev_dist, dist)
     }
 
     fn norm_sum(self) -> RenderParameters {
         let mut prev_norm_sum = 0.0;
         let mut norm_sum = 0.0;
-        let mandelbrot = self.mandelbrot_input.iterate(self.constants, |z| {
-            prev_norm_sum = norm_sum;
-            norm_sum += z.norm();
-        });
-        RenderParameters::new(mandelbrot.inside, prev_norm_sum, norm_sum, mandelbrot.h)
+        let MandelbrotResult { inside, i, h } =
+            self.mandelbrot_input.iterate(self.constants, |z| {
+                prev_norm_sum = norm_sum;
+                norm_sum += z.norm();
+            });
+        RenderParameters::new(self.constants, inside, i, h, prev_norm_sum, norm_sum)
     }
 }
 
