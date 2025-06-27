@@ -137,9 +137,9 @@ fn get_render_parameters<T: Mandelbrot>(
     };
     match constants.render_style {
         RenderStyle::Iterations => render_parameter_builder.iterations(),
-        RenderStyle::FinalAngle => render_parameter_builder.arg(),
-        RenderStyle::FinalDistance => render_parameter_builder.last_distance(),
-        RenderStyle::DistanceSum => render_parameter_builder.total_distance(),
+        RenderStyle::FinalAngle => render_parameter_builder.final_angle(),
+        RenderStyle::FinalDistance => render_parameter_builder.final_distance(),
+        RenderStyle::DistanceSum => render_parameter_builder.distance_sum(),
         RenderStyle::NormSum => render_parameter_builder.norm_sum(),
     }
 }
@@ -280,7 +280,7 @@ impl<T: Mandelbrot> RenderParameterBuilder<'_, T> {
         RenderParameters::new(self.constants, inside, i, h, x0, x1)
     }
 
-    fn arg(self) -> RenderParameters {
+    fn final_angle(self) -> RenderParameters {
         let mut zs = [Complex::ZERO, self.mandelbrot_input.z0()];
         let MandelbrotResult { inside, i, h } =
             self.mandelbrot_input.iterate(self.constants, |z| {
@@ -292,7 +292,7 @@ impl<T: Mandelbrot> RenderParameterBuilder<'_, T> {
         RenderParameters::new(self.constants, inside, i, h, angle0, angle1)
     }
 
-    fn last_distance(self) -> RenderParameters {
+    fn final_distance(self) -> RenderParameters {
         let mut zs = [Complex::ZERO, Complex::ZERO, self.mandelbrot_input.z0()];
         let MandelbrotResult { inside, i, h } =
             self.mandelbrot_input.iterate(self.constants, |z| {
@@ -305,7 +305,7 @@ impl<T: Mandelbrot> RenderParameterBuilder<'_, T> {
         RenderParameters::new(self.constants, inside, i, h, ds0, ds1)
     }
 
-    fn total_distance(self) -> RenderParameters {
+    fn distance_sum(self) -> RenderParameters {
         let mut prev_z = Complex::ZERO;
         let mut prev_dist = 0.0;
         let mut dist = 0.0;

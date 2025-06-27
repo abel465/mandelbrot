@@ -93,8 +93,8 @@ impl Controller {
             prev_prev_z = prev_z;
             prev_z = z;
             z = z * z + c;
-            stats.total_angle += angle_between_three_points(prev_prev_z.0, prev_z.0, z.0);
-            stats.total_distance += prev_z.distance(z.0);
+            stats.angle_sum += angle_between_three_points(prev_prev_z.0, prev_z.0, z.0);
+            stats.distance_sum += prev_z.distance(z.0);
             prev_norm = norm;
             norm = z.norm();
             if z.0 == prev_z.0 {
@@ -102,10 +102,10 @@ impl Controller {
             }
             self.iterations.points.push(z.0);
             if norm >= 2.0 {
-                stats.last_distance = prev_z.distance(z.0);
-                stats.last_angle = z.arg();
-                stats.count = i;
-                stats.last_norm = norm;
+                stats.final_distance = prev_z.distance(z.0);
+                stats.final_angle = z.arg();
+                stats.count = i + 1;
+                stats.final_norm = norm;
                 stats.proximity = get_proximity(prev_norm, norm);
                 while norm < 1e4 {
                     z = z * z + c;
@@ -115,10 +115,10 @@ impl Controller {
                 break;
             }
             if i + 1 == self.num_iterations as u32 {
-                stats.last_distance = prev_z.distance(z.0);
-                stats.last_angle = z.arg();
-                stats.count = i;
-                stats.last_norm = norm;
+                stats.final_distance = prev_z.distance(z.0);
+                stats.final_angle = z.arg();
+                stats.count = i + 1;
+                stats.final_norm = norm;
                 stats.proximity = get_proximity(prev_norm, norm);
             }
         }
@@ -480,31 +480,34 @@ impl Controller {
                         ui.monospace(format!("{:.2}", self.iterations.stats.count));
                         ui.end_row();
 
-                        ui.label("last |z|");
-                        ui.monospace(format!("{:.4}", self.iterations.stats.last_norm));
-                        ui.end_row();
-
-                        ui.label("last angle");
-                        ui.monospace(format!("{:.4}", self.iterations.stats.last_angle));
-                        ui.end_row();
-
-                        ui.label("total angle");
-                        ui.monospace(format!("{:.4}", self.iterations.stats.total_angle));
-                        ui.end_row();
-
-                        ui.label("last distance");
-                        ui.monospace(format!("{:.4}", self.iterations.stats.last_distance));
-                        ui.end_row();
-
-                        ui.label("total distance");
-                        ui.monospace(format!("{:.4}", self.iterations.stats.total_distance));
-                        ui.end_row();
-
                         ui.label("proximity");
                         ui.monospace(format!("{:.4}", self.iterations.stats.proximity));
                         ui.end_row();
                     }
                 });
+                if self.iterations.enabled {
+                    egui::Grid::new("iterations_debug_grid").show(ui, |ui| {
+                        ui.label("");
+                        ui.label("final");
+                        ui.label("sum");
+                        ui.label("average");
+                        ui.end_row();
+                        ui.label("|z|");
+                        ui.monospace(format!("{:.4}", self.iterations.stats.final_norm));
+                        ui.label("");
+                        ui.label("");
+                        ui.end_row();
+                        ui.label("angle");
+                        ui.monospace(format!("{:.4}", self.iterations.stats.final_angle));
+                        ui.monospace(format!("{:.4}", self.iterations.stats.angle_sum));
+                        ui.label("");
+                        ui.end_row();
+                        ui.label("distance");
+                        ui.monospace(format!("{:.4}", self.iterations.stats.final_distance));
+                        ui.monospace(format!("{:.4}", self.iterations.stats.distance_sum));
+                        ui.end_row();
+                    });
+                }
             });
     }
 }

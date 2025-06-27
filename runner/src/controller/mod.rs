@@ -79,11 +79,11 @@ impl Camera {
 
 #[derive(Clone, Copy, Default)]
 struct IterationStats {
-    last_norm: f32,
-    last_distance: f32,
-    last_angle: f32,
-    total_angle: f32,
-    total_distance: f32,
+    final_norm: f32,
+    final_distance: f32,
+    final_angle: f32,
+    angle_sum: f32,
+    distance_sum: f32,
     proximity: f32, // normalized proximity to the next iteration
     count: u32,
 }
