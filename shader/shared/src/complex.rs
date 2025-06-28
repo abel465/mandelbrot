@@ -9,11 +9,11 @@ pub struct Complex(pub Vec2);
 
 impl Complex {
     pub const fn new(x: f32, y: f32) -> Self {
-        Complex(Vec2::new(x, y))
+        Self(Vec2::new(x, y))
     }
-    pub const ZERO: Complex = Complex(Vec2::ZERO);
-    pub const ONE: Complex = Complex(Vec2::X);
-    pub const I: Complex = Complex(Vec2::Y);
+    pub const ZERO: Self = Self(Vec2::ZERO);
+    pub const ONE: Self = Self(Vec2::X);
+    pub const I: Self = Self(Vec2::Y);
 }
 
 impl Complex {
@@ -23,11 +23,15 @@ impl Complex {
 
     pub fn powf(self, exp: f32) -> Self {
         if exp == 0.0 {
-            Complex::ONE
-        } else {
-            let (r, theta) = self.to_polar();
-            Self::from_polar(r.powf(exp), theta * exp)
+            return Self::ONE;
         }
+        let r_sq = self.norm_squared();
+        if r_sq == 0.0 && exp < 0.0 {
+            return Self::ONE;
+        }
+        let r = r_sq.sqrt();
+        let theta = self.arg();
+        Self::from_polar(r.powf(exp), theta * exp)
     }
 
     pub fn norm(self) -> f32 {
@@ -47,7 +51,7 @@ impl Complex {
     }
 
     pub fn from_polar(r: f32, theta: f32) -> Self {
-        r * Complex::from_angle(theta)
+        r * Self::from_angle(theta)
     }
 
     pub fn sqrt(self) -> Self {
@@ -62,25 +66,25 @@ impl Complex {
     }
 
     pub fn from_angle(angle: f32) -> Self {
-        Complex(Vec2::from_angle(angle))
+        Self(Vec2::from_angle(angle))
     }
 }
 
 impl From<Vec2> for Complex {
     fn from(value: Vec2) -> Self {
-        Complex(value)
+        Self(value)
     }
 }
 
 impl From<DVec2> for Complex {
     fn from(value: DVec2) -> Self {
-        Complex(value.as_vec2())
+        Self(value.as_vec2())
     }
 }
 
 impl From<f32> for Complex {
-    fn from(value: f32) -> Complex {
-        Complex::new(value, 0.0)
+    fn from(value: f32) -> Self {
+        Self::new(value, 0.0)
     }
 }
 
@@ -101,14 +105,14 @@ impl DerefMut for Complex {
 impl Add for Complex {
     type Output = Self;
     fn add(self, other: Self) -> Self::Output {
-        Complex::new(self.x + other.x, self.y + other.y)
+        Self::new(self.x + other.x, self.y + other.y)
     }
 }
 
 impl Add<f32> for Complex {
     type Output = Self;
     fn add(self, x: f32) -> Self::Output {
-        Complex::new(self.x + x, self.y)
+        Self::new(self.x + x, self.y)
     }
 }
 
@@ -122,7 +126,7 @@ impl Add<Complex> for f32 {
 impl Sub for Complex {
     type Output = Self;
     fn sub(self, other: Self) -> Self::Output {
-        Complex::new(self.x - other.x, self.y - other.y)
+        Self::new(self.x - other.x, self.y - other.y)
     }
 }
 
@@ -143,7 +147,7 @@ impl SubAssign for Complex {
 impl Mul for Complex {
     type Output = Self;
     fn mul(self, other: Self) -> Self::Output {
-        Complex::new(
+        Self::new(
             self.x * other.x - self.y * other.y,
             self.x * other.y + self.y * other.x,
         )
@@ -153,7 +157,7 @@ impl Mul for Complex {
 impl Mul<f32> for Complex {
     type Output = Self;
     fn mul(self, other: f32) -> Self::Output {
-        Complex::new(self.x * other, self.y * other)
+        Self::new(self.x * other, self.y * other)
     }
 }
 
@@ -167,15 +171,15 @@ impl Mul<Complex> for f32 {
 impl Div<f32> for Complex {
     type Output = Self;
     fn div(self, other: f32) -> Self::Output {
-        Complex::new(self.x / other, self.y / other)
+        Self::new(self.x / other, self.y / other)
     }
 }
 
-impl Div<Complex> for Complex {
+impl Div for Complex {
     type Output = Self;
-    fn div(self, other: Complex) -> Self::Output {
+    fn div(self, other: Self) -> Self::Output {
         let d = other.x * other.x + other.y * other.y;
-        Complex::new(
+        Self::new(
             (self.x * other.x + self.y * other.y) / d,
             (self.y * other.x - self.x * other.y) / d,
         )
@@ -185,7 +189,7 @@ impl Div<Complex> for Complex {
 impl Neg for Complex {
     type Output = Self;
     fn neg(self) -> Self::Output {
-        Complex::new(-self.x, -self.y)
+        Self::new(-self.x, -self.y)
     }
 }
 
