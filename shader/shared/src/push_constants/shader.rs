@@ -12,6 +12,7 @@ pub enum RenderStyle {
     DistanceSum,
     NormSum,
     FinalNorm,
+    AngleSum,
 }
 
 #[derive(Copy, Clone, Debug, NoUninit, Default, PartialEq)]
