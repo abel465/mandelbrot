@@ -141,6 +141,7 @@ fn get_render_parameters<T: Mandelbrot>(
         RenderStyle::FinalDistance => render_parameter_builder.final_distance(),
         RenderStyle::DistanceSum => render_parameter_builder.distance_sum(),
         RenderStyle::NormSum => render_parameter_builder.norm_sum(),
+        RenderStyle::FinalNorm => render_parameter_builder.final_norm(),
     }
 }
 
@@ -262,6 +263,7 @@ fn col_from_render_parameters(
         RenderStyle::FinalDistance => (period, t),
         RenderStyle::DistanceSum => (0.2 * period, t),
         RenderStyle::NormSum => (0.3 * period, t),
+        _ => (period, t),
     };
     get_col(constants.palette, x * period + t)
 }
@@ -327,6 +329,18 @@ impl<T: Mandelbrot> RenderParameterBuilder<'_, T> {
                 norm_sum += z.norm();
             });
         RenderParameters::new(self.constants, inside, i, h, prev_norm_sum, norm_sum)
+    }
+
+    fn final_norm(self) -> RenderParameters {
+        let mut zs = [Complex::ZERO, self.mandelbrot_input.z0()];
+        let MandelbrotResult { inside, i, h } =
+            self.mandelbrot_input.iterate(self.constants, |z| {
+                zs[0] = zs[1];
+                zs[1] = z;
+            });
+        let norm0 = zs[0].norm();
+        let norm1 = zs[1].norm();
+        RenderParameters::new(self.constants, inside, i, h, norm0, norm1)
     }
 }
 
