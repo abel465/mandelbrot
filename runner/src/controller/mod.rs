@@ -215,7 +215,6 @@ pub struct Controller {
     start: Instant,
     last_instant: Instant,
     cursor: DVec2,
-    prev_cursor: DVec2,
     mouse_button_pressed: u32,
     cameras: Cameras,
     debug: bool,
@@ -249,7 +248,6 @@ impl Controller {
             start: Instant::now(),
             last_instant: Instant::now(),
             cursor: DVec2::ZERO,
-            prev_cursor: DVec2::ZERO,
             mouse_button_pressed: 0,
             num_iterations: calculate_num_iterations(
                 cameras.mandelbrot.zoom,
@@ -471,16 +469,16 @@ impl ControllerTrait for Controller {
     }
 
     fn mouse_move(&mut self, position: DVec2) {
-        self.prev_cursor = self.cursor;
+        let prev_cursor = self.cursor;
         self.cursor = position;
         if self.iterations.dragging {
             self.iterations.marker +=
-                self.to_uv_space_big(self.cursor) - self.to_uv_space_big(self.prev_cursor);
+                self.to_uv_space_big(self.cursor) - self.to_uv_space_big(prev_cursor);
             self.iterations.recompute = self.iterations.enabled;
             self.cameras.julia.needs_reiterate = true;
         } else if self.render_split.dragging.is_some() {
             let size = self.size.as_dvec2();
-            let delta = (self.prev_cursor - self.cursor) / size;
+            let delta = (prev_cursor - self.cursor) / size;
             let value = if size.x > size.y { delta.x } else { delta.y };
             self.render_split.value -= value;
             if value > 0.0 {
@@ -496,7 +494,7 @@ impl ControllerTrait for Controller {
                 if camera.grabbing {
                     self.context_menu = None;
                     let delta =
-                        BigVec2::from_dvec2((self.prev_cursor - self.cursor) / self.size.y as f64)
+                        BigVec2::from_dvec2((prev_cursor - self.cursor) / self.size.y as f64)
                             .with_precision(PRECISION);
                     camera.translate += delta / camera.zoom;
                     camera.needs_reiterate = true;
@@ -576,7 +574,6 @@ impl ControllerTrait for Controller {
             size: self.size.into(),
             time: self.start.elapsed().as_secs_f32(),
             cursor: self.cursor.as_vec2(),
-            prev_cursor: self.prev_cursor.as_vec2(),
             mandelbrot_camera_translate: self.cameras.mandelbrot.translate.as_vec2(),
             mandelbrot_camera_zoom: self.cameras.mandelbrot.zoom as f32,
             julia_camera_translate: self.cameras.julia.translate.as_vec2(),
