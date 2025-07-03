@@ -110,4 +110,11 @@ pub struct FragmentConstants {
     pub iteration_mode: IterationMode,
     pub render_partitioning: RenderPartitioning,
     pub exponent: f32,
+    pub escape_radius: f32,
+}
+
+impl FragmentConstants {
+    pub fn escape_radius_sq(&self) -> f32 {
+        self.escape_radius * self.escape_radius
+    }
 }

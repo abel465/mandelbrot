@@ -62,7 +62,7 @@ impl Mandelbrot for RegularMandelbrot {
         let mut i = 0;
         let mut prev_norm_sq = 0.0;
         let mut norm_sq = z.norm_squared();
-        while norm_sq < 4.0 && i < num_iters {
+        while norm_sq < constants.escape_radius_sq() && i < num_iters {
             if constants.exponent == 2.0 {
                 z = z * z + c;
             } else {
@@ -74,8 +74,9 @@ impl Mandelbrot for RegularMandelbrot {
             f(z);
         }
 
-        let h = get_proximity(prev_norm_sq.sqrt(), norm_sq.sqrt());
-        let inside = i == num_iters && (norm_sq < 4.0 || h > constants.num_iterations.fract());
+        let h = get_proximity(prev_norm_sq.sqrt(), norm_sq.sqrt(), constants.escape_radius);
+        let inside = i == num_iters
+            && (norm_sq < constants.escape_radius_sq() || h > constants.num_iterations.fract());
         MandelbrotResult { inside, i, h }
     }
 }
@@ -111,7 +112,7 @@ impl Mandelbrot for PerturbedMandelbrot<'_> {
         let mut norm_sq = z0.norm_squared();
         let mut ref_i = 0;
 
-        while norm_sq < 4.0 && i < num_iters {
+        while norm_sq < constants.escape_radius_sq() && i < num_iters {
             dz = 2.0 * reference_points[ref_i] * dz + dz * dz + dc;
             ref_i += 1;
             let z = reference_points[ref_i] + dz;
@@ -125,8 +126,9 @@ impl Mandelbrot for PerturbedMandelbrot<'_> {
             }
         }
 
-        let h = get_proximity(prev_norm_sq.sqrt(), norm_sq.sqrt());
-        let inside = i == num_iters && (norm_sq < 4.0 || h > constants.num_iterations.fract());
+        let h = get_proximity(prev_norm_sq.sqrt(), norm_sq.sqrt(), constants.escape_radius);
+        let inside = i == num_iters
+            && (norm_sq < constants.escape_radius_sq() || h > constants.num_iterations.fract());
         MandelbrotResult { inside, i, h }
     }
 }

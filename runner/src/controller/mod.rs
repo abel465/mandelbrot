@@ -235,6 +235,7 @@ pub struct Controller {
     render_partitioning: RenderPartitioning,
     delta_params: DeltaParams,
     exponent: f64,
+    escape_radius: f32,
 }
 
 impl Controller {
@@ -272,6 +273,7 @@ impl Controller {
             render_partitioning: RenderPartitioning::default(),
             delta_params: DeltaParams::default(),
             exponent: 2.0,
+            escape_radius: 2.0,
         }
     }
 
@@ -627,6 +629,7 @@ impl ControllerTrait for Controller {
             iteration_mode: self.iterations.mode,
             render_partitioning: self.render_partitioning,
             exponent: self.exponent as f32,
+            escape_radius: self.escape_radius,
         }
     }
 

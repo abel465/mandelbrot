@@ -63,13 +63,17 @@ impl Controller {
         graphics_context: &easy_shader_runner::GraphicsContext,
     ) {
         use crate::big_complex::Complex;
-        const FOUR: dashu::float::FBig = dashu::fbig!(100);
+        let escape_radius_squared =
+            dashu::float::FBig::<dashu::float::round::mode::Zero>::try_from(
+                self.escape_radius * self.escape_radius,
+            )
+            .unwrap();
 
         self.mandelbrot_reference.points.clear();
         let c: Complex = self.cameras.mandelbrot.translate.clone().into();
         let mut z = Complex::ZERO.with_precision(128);
         let mut i = 0;
-        while i < self.num_iterations as u32 && z.norm_squared() < FOUR {
+        while i < self.num_iterations as u32 && z.norm_squared() < escape_radius_squared {
             self.mandelbrot_reference.points.push(z.as_vec2());
             i += 1;
             z = z.square() + c.clone();
@@ -98,7 +102,12 @@ impl Controller {
         let mut prev_prev_z;
         let mut prev_norm;
         let mut norm = 0.0;
-        for i in 0..self.num_iterations as u32 {
+        let mut i = 0;
+        self.iterations.points.push(z.0);
+        loop {
+            if i >= self.num_iterations as u32 {
+                break;
+            }
             prev_prev_z = prev_z;
             prev_z = z;
             if self.exponent == 2.0 {
@@ -112,13 +121,13 @@ impl Controller {
             norm = z.norm();
             stats.norm_sum += norm;
             self.iterations.points.push(z.0);
-            if norm >= 2.0 {
+            if norm >= self.escape_radius {
                 stats.final_distance = prev_z.distance(z.0);
                 stats.final_angle = z.arg();
                 stats.count = i + 1;
                 stats.final_norm = norm;
-                stats.proximity = get_proximity(prev_norm, norm);
-                while norm < 1e4 {
+                stats.proximity = get_proximity(prev_norm, norm, self.escape_radius);
+                while norm < self.escape_radius.max(1e4) {
                     if self.exponent == 2.0 {
                         z = z * z + c;
                     } else {
@@ -126,6 +135,10 @@ impl Controller {
                     }
                     norm = z.norm();
                     self.iterations.points.push(z.0);
+                    i += 1;
+                    if i >= self.num_iterations as u32 {
+                        break;
+                    }
                 }
                 break;
             }
@@ -134,8 +147,9 @@ impl Controller {
                 stats.final_angle = z.arg();
                 stats.count = i + 1;
                 stats.final_norm = norm;
-                stats.proximity = get_proximity(prev_norm, norm);
+                stats.proximity = get_proximity(prev_norm, norm, self.escape_radius);
             }
+            i += 1;
         }
         self.iterations.stats = stats;
 
@@ -338,6 +352,21 @@ impl Controller {
                 });
                 ui.separator();
                 self.render_partition_ui(ui);
+                ui.separator();
+                ui.vertical_centered(|ui| {
+                    ui.label(egui::RichText::new("Escape Radius").size(14.0));
+                });
+                if ui
+                    .add(
+                        egui::Slider::new(&mut self.escape_radius, 2.0..=10000.0).logarithmic(true),
+                    )
+                    .changed()
+                {
+                    self.iterations.recompute = self.iterations.enabled;
+                    self.mandelbrot_reference.recompute = true;
+                    self.cameras.mandelbrot.needs_reiterate = true;
+                    self.cameras.julia.needs_reiterate = true;
+                }
                 ui.separator();
                 ui.vertical_centered(|ui| {
                     ui.label(egui::RichText::new("Exponent").size(14.0));
