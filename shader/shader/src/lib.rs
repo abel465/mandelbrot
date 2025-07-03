@@ -63,7 +63,11 @@ impl Mandelbrot for RegularMandelbrot {
         let mut prev_norm_sq = 0.0;
         let mut norm_sq = z.norm_squared();
         while norm_sq < 4.0 && i < num_iters {
-            z = z * z + c;
+            if constants.exponent == 2.0 {
+                z = z * z + c;
+            } else {
+                z = z.powf(constants.exponent) + c;
+            }
             prev_norm_sq = norm_sq;
             norm_sq = z.norm_squared();
             i += 1;

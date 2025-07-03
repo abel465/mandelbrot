@@ -109,4 +109,5 @@ pub struct FragmentConstants {
     pub needs_reiterate_julia: Bool,
     pub iteration_mode: IterationMode,
     pub render_partitioning: RenderPartitioning,
+    pub exponent: f32,
 }

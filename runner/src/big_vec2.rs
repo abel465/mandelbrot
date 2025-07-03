@@ -46,6 +46,10 @@ impl BigVec2 {
     pub fn as_dvec2(&self) -> glam::DVec2 {
         glam::dvec2(self.x.to_f64().value(), self.y.to_f64().value())
     }
+
+    pub fn length_squared(&self) -> FBig {
+        self.x.sqr() + self.y.sqr()
+    }
 }
 
 impl Add for BigVec2 {

@@ -18,7 +18,7 @@ impl Complex {
     }
 
     pub fn norm_squared(&self) -> FBig {
-        self.x.sqr() + self.y.sqr()
+        self.0.length_squared()
     }
 
     pub fn with_precision(self, precision: usize) -> Self {

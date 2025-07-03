@@ -14,7 +14,20 @@ impl Controller {
     ) {
         self.handle_param_deltas();
         self.iterations.mode = if self.cameras.mandelbrot.zoom > 1000.0 {
-            IterationMode::Perturbation
+            if self.exponent == 2.0 {
+                IterationMode::Perturbation
+            } else {
+                let dialog_width = 160.0;
+                egui::Window::new("warning")
+                    .collapsible(false)
+                    .resizable(false)
+                    .max_width(dialog_width)
+                    .fixed_pos(egui::pos2(self.size.x as f32 - dialog_width - 15.0, 10.0))
+                    .show(ctx, |ui| {
+                        ui.label("Deep zoom is only supported on exponent of 2");
+                    });
+                IterationMode::Regular
+            }
         } else {
             IterationMode::Regular
         };
@@ -56,14 +69,10 @@ impl Controller {
         let c: Complex = self.cameras.mandelbrot.translate.clone().into();
         let mut z = Complex::ZERO.with_precision(128);
         let mut i = 0;
-        while i < self.num_iterations as u32 {
+        while i < self.num_iterations as u32 && z.norm_squared() < FOUR {
             self.mandelbrot_reference.points.push(z.as_vec2());
             i += 1;
             z = z.square() + c.clone();
-            let norm_sq = z.norm_squared();
-            if norm_sq >= FOUR {
-                break;
-            }
         }
         self.mandelbrot_reference.points.push(z.as_vec2());
         self.mandelbrot_reference.num_ref_iterations = i;
@@ -92,7 +101,11 @@ impl Controller {
         for i in 0..self.num_iterations as u32 {
             prev_prev_z = prev_z;
             prev_z = z;
-            z = z * z + c;
+            if self.exponent == 2.0 {
+                z = z * z + c;
+            } else {
+                z = z.powf(self.exponent as f32) + c;
+            }
             stats.angle_sum += angle_between_three_points(prev_prev_z.0, prev_z.0, z.0);
             stats.distance_sum += prev_z.distance(z.0);
             prev_norm = norm;
@@ -106,7 +119,11 @@ impl Controller {
                 stats.final_norm = norm;
                 stats.proximity = get_proximity(prev_norm, norm);
                 while norm < 1e4 {
-                    z = z * z + c;
+                    if self.exponent == 2.0 {
+                        z = z * z + c;
+                    } else {
+                        z = z.powf(self.exponent as f32) + c;
+                    }
                     norm = z.norm();
                     self.iterations.points.push(z.0);
                 }
@@ -160,6 +177,17 @@ impl Controller {
         }
         if self.delta_params.iterations != 0.0 {
             self.additional_iterations += self.delta_params.iterations * dt;
+            self.cameras.mandelbrot.needs_reiterate = true;
+            self.cameras.julia.needs_reiterate = true;
+            self.mandelbrot_reference.recompute = true;
+            self.iterations.recompute = self.iterations.enabled;
+            self.num_iterations = super::calculate_num_iterations(
+                self.cameras.mandelbrot.zoom,
+                self.additional_iterations as f64,
+            );
+        }
+        if self.delta_params.exponent != 0.0 {
+            self.exponent += self.delta_params.exponent * dt;
             self.cameras.mandelbrot.needs_reiterate = true;
             self.cameras.julia.needs_reiterate = true;
             self.mandelbrot_reference.recompute = true;
@@ -310,6 +338,19 @@ impl Controller {
                 });
                 ui.separator();
                 self.render_partition_ui(ui);
+                ui.separator();
+                ui.vertical_centered(|ui| {
+                    ui.label(egui::RichText::new("Exponent").size(14.0));
+                });
+                if ui
+                    .add(egui::Slider::new(&mut self.exponent, -10.0..=10.0))
+                    .changed()
+                {
+                    self.iterations.recompute = self.iterations.enabled;
+                    self.mandelbrot_reference.recompute = true;
+                    self.cameras.mandelbrot.needs_reiterate = true;
+                    self.cameras.julia.needs_reiterate = true;
+                }
                 ui.separator();
                 ui.vertical_centered(|ui| {
                     ui.label(egui::RichText::new("Additional Iterations").size(14.0));

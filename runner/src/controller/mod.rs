@@ -208,6 +208,7 @@ struct DeltaParams {
     zoom: f64,
     translate: DVec2,
     animation_speed: f64,
+    exponent: f64,
 }
 
 pub struct Controller {
@@ -233,6 +234,7 @@ pub struct Controller {
     mandelbrot_reference: MandelbrotReference,
     render_partitioning: RenderPartitioning,
     delta_params: DeltaParams,
+    exponent: f64,
 }
 
 impl Controller {
@@ -269,6 +271,7 @@ impl Controller {
             mandelbrot_reference: MandelbrotReference::default(),
             render_partitioning: RenderPartitioning::default(),
             delta_params: DeltaParams::default(),
+            exponent: 2.0,
         }
     }
 
@@ -402,6 +405,26 @@ impl ControllerTrait for Controller {
                         'i' => {
                             self.delta_params.iterations = self.delta_params.iterations.min(0.0);
                         }
+                        'g' => {
+                            self.delta_params.exponent = self.delta_params.exponent.max(0.0);
+                        }
+                        'h' => {
+                            self.delta_params.exponent = self.delta_params.exponent.min(0.0);
+                        }
+                        'G' => {
+                            self.exponent = self.exponent.ceil() - 1.0;
+                            self.iterations.recompute = self.iterations.enabled;
+                            self.mandelbrot_reference.recompute = true;
+                            self.cameras.mandelbrot.needs_reiterate = true;
+                            self.cameras.julia.needs_reiterate = true;
+                        }
+                        'H' => {
+                            self.exponent = self.exponent.floor() + 1.0;
+                            self.iterations.recompute = self.iterations.enabled;
+                            self.mandelbrot_reference.recompute = true;
+                            self.cameras.mandelbrot.needs_reiterate = true;
+                            self.cameras.julia.needs_reiterate = true;
+                        }
                         _ => {}
                     }
                 }
@@ -458,6 +481,14 @@ impl ControllerTrait for Controller {
                         self.delta_params.iterations = match c {
                             'u' => -z,
                             'i' => z,
+                            _ => unreachable!(),
+                        };
+                    }
+                    'g' | 'h' => {
+                        let z = 0.2;
+                        self.delta_params.exponent = match c {
+                            'g' => -z,
+                            'h' => z,
                             _ => unreachable!(),
                         };
                     }
@@ -595,6 +626,7 @@ impl ControllerTrait for Controller {
             needs_reiterate_julia: needs_reiterate_julia.into(),
             iteration_mode: self.iterations.mode,
             render_partitioning: self.render_partitioning,
+            exponent: self.exponent as f32,
         }
     }
 

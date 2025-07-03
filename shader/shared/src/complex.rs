@@ -27,7 +27,7 @@ impl Complex {
         }
         let r_sq = self.norm_squared();
         if r_sq == 0.0 && exp < 0.0 {
-            return Self::ONE;
+            return Self::ZERO;
         }
         let r = r_sq.sqrt();
         let theta = self.arg();
