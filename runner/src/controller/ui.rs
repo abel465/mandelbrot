@@ -403,13 +403,13 @@ impl Controller {
                     self.cameras.julia.needs_reiterate = true;
                 };
                 ui.separator();
-                ui.toggle_value(&mut self.smooth.enable, "Smooth");
-                if ui
-                    .add_enabled(
-                        self.smooth.enable,
-                        egui::Slider::new(&mut self.smooth.value, 0.0..=1.0),
-                    )
-                    .changed()
+                if ui.toggle_value(&mut self.smooth.enable, "Smooth").changed()
+                    || ui
+                        .add_enabled(
+                            self.smooth.enable,
+                            egui::Slider::new(&mut self.smooth.value, 0.0..=1.0),
+                        )
+                        .changed()
                 {
                     self.cameras.mandelbrot.needs_reiterate = true;
                     self.cameras.julia.needs_reiterate = true;
