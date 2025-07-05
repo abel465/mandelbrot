@@ -13,7 +13,7 @@ impl Controller {
         graphics_context: &easy_shader_runner::GraphicsContext,
     ) {
         self.handle_param_deltas();
-        self.iterations.mode = if self.cameras.mandelbrot.zoom > 1000.0 {
+        self.iteration_mode = if self.cameras.mandelbrot.zoom > 1000.0 {
             if self.exponent == 2.0 {
                 IterationMode::Perturbation
             } else {
@@ -42,7 +42,7 @@ impl Controller {
         );
         self.handle_cursor_icon(ctx);
 
-        if self.iterations.recompute {
+        if self.marker_iterations.recompute {
             self.recompute_iterations(graphics_context);
         }
         if self.show_fps {
@@ -52,7 +52,7 @@ impl Controller {
             self.debug_window(ctx);
         }
         if self.cameras.mandelbrot.needs_reiterate
-            && matches!(self.iterations.mode, IterationMode::Perturbation)
+            && matches!(self.iteration_mode, IterationMode::Perturbation)
         {
             self.recompute_reference_iterations(graphics_context);
         }
@@ -73,7 +73,8 @@ impl Controller {
         let c: Complex = self.cameras.mandelbrot.translate.clone().into();
         let mut z = Complex::ZERO.with_precision(128);
         let mut i = 0;
-        while i < self.num_iterations as u32 && z.norm_squared() < escape_radius_squared {
+        let num_iters = self.calculate_num_iterations() as u32;
+        while i < num_iters && z.norm_squared() < escape_radius_squared {
             self.mandelbrot_reference.points.push(z.as_vec2());
             i += 1;
             z = z.square() + c.clone();
@@ -88,24 +89,25 @@ impl Controller {
     }
 
     fn recompute_iterations(&mut self, graphics_context: &easy_shader_runner::GraphicsContext) {
-        self.iterations.points.clear();
-        self.iterations.recompute = false;
+        self.marker_iterations.points.clear();
+        self.marker_iterations.recompute = false;
         if self.cameras.mandelbrot.zoom > 1e5 {
             return;
         }
         use shared::complex::Complex;
-        debug_assert!(self.iterations.enabled);
-        let c = Complex::from(self.iterations.marker.as_vec2());
+        debug_assert!(self.marker_iterations.enabled);
+        let c = Complex::from(self.marker_iterations.position.as_vec2());
         let mut z = Complex::ZERO;
-        let mut stats = super::IterationStats::default();
+        let mut stats = super::MarkerIterationStats::default();
         let mut prev_z = Complex::new(-1.0, 0.0);
         let mut prev_prev_z;
         let mut prev_norm;
         let mut norm = 0.0;
         let mut i = 0;
-        self.iterations.points.push(z.0);
+        let num_iters = self.calculate_num_iterations() as u32;
+        self.marker_iterations.points.push(z.0);
         loop {
-            if i >= self.num_iterations as u32 {
+            if i >= num_iters {
                 break;
             }
             prev_prev_z = prev_z;
@@ -120,7 +122,7 @@ impl Controller {
             prev_norm = norm;
             norm = z.norm();
             stats.norm_sum += norm;
-            self.iterations.points.push(z.0);
+            self.marker_iterations.points.push(z.0);
             if norm >= self.escape_radius {
                 stats.final_distance = prev_z.distance(z.0);
                 stats.final_angle = z.arg();
@@ -134,15 +136,15 @@ impl Controller {
                         z = z.powf(self.exponent as f32) + c;
                     }
                     norm = z.norm();
-                    self.iterations.points.push(z.0);
+                    self.marker_iterations.points.push(z.0);
                     i += 1;
-                    if i >= self.num_iterations as u32 {
+                    if i >= num_iters {
                         break;
                     }
                 }
                 break;
             }
-            if i + 1 == self.num_iterations as u32 {
+            if i + 1 == num_iters {
                 stats.final_distance = prev_z.distance(z.0);
                 stats.final_angle = z.arg();
                 stats.count = i + 1;
@@ -151,13 +153,13 @@ impl Controller {
             }
             i += 1;
         }
-        self.iterations.stats = stats;
+        self.marker_iterations.stats = stats;
 
-        if !self.iterations.points.is_empty() {
+        if !self.marker_iterations.points.is_empty() {
             graphics_context.queue.write_buffer(
-                self.iterations.points_buffer.as_ref().unwrap(),
+                self.marker_iterations.points_buffer.as_ref().unwrap(),
                 0,
-                bytemuck::cast_slice(&self.iterations.points),
+                bytemuck::cast_slice(&self.marker_iterations.points),
             );
         }
     }
@@ -170,11 +172,7 @@ impl Controller {
             self.cameras.mandelbrot.needs_reiterate = true;
             self.cameras.julia.needs_reiterate = true;
             self.mandelbrot_reference.recompute = true;
-            self.iterations.recompute = self.iterations.enabled;
-            self.num_iterations = super::calculate_num_iterations(
-                self.cameras.mandelbrot.zoom,
-                self.additional_iterations as f64,
-            );
+            self.marker_iterations.recompute = self.marker_iterations.enabled;
         }
         if self.delta_params.translate.x != 0.0 || self.delta_params.translate.y != 0.0 {
             self.cameras.mandelbrot.translate +=
@@ -190,31 +188,23 @@ impl Controller {
                 (self.delta_params.animation_speed as f32 - 1.0) * dt as f32 + 1.0;
         }
         if self.delta_params.iterations != 0.0 {
-            self.additional_iterations += self.delta_params.iterations * dt;
+            self.num_iterations.n += self.delta_params.iterations * dt;
             self.cameras.mandelbrot.needs_reiterate = true;
             self.cameras.julia.needs_reiterate = true;
             self.mandelbrot_reference.recompute = true;
-            self.iterations.recompute = self.iterations.enabled;
-            self.num_iterations = super::calculate_num_iterations(
-                self.cameras.mandelbrot.zoom,
-                self.additional_iterations as f64,
-            );
+            self.marker_iterations.recompute = self.marker_iterations.enabled;
         }
         if self.delta_params.exponent != 0.0 {
             self.exponent += self.delta_params.exponent * dt;
             self.cameras.mandelbrot.needs_reiterate = true;
             self.cameras.julia.needs_reiterate = true;
             self.mandelbrot_reference.recompute = true;
-            self.iterations.recompute = self.iterations.enabled;
-            self.num_iterations = super::calculate_num_iterations(
-                self.cameras.mandelbrot.zoom,
-                self.additional_iterations as f64,
-            );
+            self.marker_iterations.recompute = self.marker_iterations.enabled;
         }
     }
 
     fn handle_cursor_icon(&mut self, ctx: &egui::Context) {
-        if self.iterations.dragging {
+        if self.marker_iterations.dragging {
             ctx.set_cursor_icon(egui::CursorIcon::Grabbing);
         } else if let Some(icon) = self.render_split.dragging {
             ctx.set_cursor_icon(icon);
@@ -235,9 +225,9 @@ impl Controller {
             .fixed_pos([pos.x as f32, pos.y as f32])
             .show(ctx, |ui| {
                 if ui.button("Show iterations here").clicked() {
-                    self.iterations.marker = self.to_uv_space_big(pos);
-                    self.iterations.enabled = true;
-                    self.iterations.recompute = true;
+                    self.marker_iterations.position = self.to_uv_space_big(pos);
+                    self.marker_iterations.enabled = true;
+                    self.marker_iterations.recompute = true;
                     self.context_menu = None;
                     self.cameras.julia.needs_reiterate = true;
                 }
@@ -362,7 +352,7 @@ impl Controller {
                     )
                     .changed()
                 {
-                    self.iterations.recompute = self.iterations.enabled;
+                    self.marker_iterations.recompute = self.marker_iterations.enabled;
                     self.mandelbrot_reference.recompute = true;
                     self.cameras.mandelbrot.needs_reiterate = true;
                     self.cameras.julia.needs_reiterate = true;
@@ -375,27 +365,39 @@ impl Controller {
                     .add(egui::Slider::new(&mut self.exponent, -10.0..=10.0))
                     .changed()
                 {
-                    self.iterations.recompute = self.iterations.enabled;
+                    self.marker_iterations.recompute = self.marker_iterations.enabled;
                     self.mandelbrot_reference.recompute = true;
                     self.cameras.mandelbrot.needs_reiterate = true;
                     self.cameras.julia.needs_reiterate = true;
                 }
                 ui.separator();
-                ui.vertical_centered(|ui| {
-                    ui.label(egui::RichText::new("Additional Iterations").size(14.0));
+                use super::NumIterationsMode;
+                ui.horizontal(|ui| {
+                    ui.add_space(20.0);
+                    let button_text = match self.num_iterations.mode {
+                        NumIterationsMode::Additional => "Additional",
+                        NumIterationsMode::Fixed => "Fixed",
+                    };
+                    if ui
+                        .add(egui::Button::new(button_text).min_size(egui::vec2(64.0, 0.0)))
+                        .clicked()
+                    {
+                        self.num_iterations
+                            .toggle_mode(self.cameras.mandelbrot.zoom);
+                    }
+                    ui.label(egui::RichText::new("Iterations").size(14.0));
                 });
+                let num_iterations_slider_range = self
+                    .num_iterations
+                    .slider_range(self.cameras.mandelbrot.zoom);
                 if ui
                     .add(egui::Slider::new(
-                        &mut self.additional_iterations,
-                        0.0..=super::MAX_ADDITIONAL_ITERS as f64,
+                        &mut self.num_iterations.n,
+                        num_iterations_slider_range,
                     ))
                     .changed()
                 {
-                    self.num_iterations = super::calculate_num_iterations(
-                        self.cameras.mandelbrot.zoom,
-                        self.additional_iterations as f64,
-                    );
-                    self.iterations.recompute = self.iterations.enabled;
+                    self.marker_iterations.recompute = self.marker_iterations.enabled;
                     self.mandelbrot_reference.recompute = true;
                     self.cameras.mandelbrot.needs_reiterate = true;
                     self.cameras.julia.needs_reiterate = true;
@@ -430,11 +432,11 @@ impl Controller {
                 );
                 ui.separator();
                 if ui
-                    .checkbox(&mut self.iterations.enabled, "Marker Iterations")
+                    .checkbox(&mut self.marker_iterations.enabled, "Marker Iterations")
                     .clicked()
-                    && self.iterations.enabled
+                    && self.marker_iterations.enabled
                 {
-                    self.iterations.recompute = true;
+                    self.marker_iterations.recompute = true;
                 };
                 if ui
                     .checkbox(&mut self.render_julia_set, "Render Julia Set")
@@ -519,18 +521,18 @@ impl Controller {
                             ui.end_row();
                         }
 
-                        if self.iterations.enabled || self.render_julia_set {
+                        if self.marker_iterations.enabled || self.render_julia_set {
                             ui.label("marker X");
                             ui.monospace(format!(
                                 "{:+.6e}",
-                                self.iterations.marker.x.to_f32().value()
+                                self.marker_iterations.position.x.to_f32().value()
                             ));
                             ui.end_row();
 
                             ui.label("marker Y");
                             ui.monospace(format!(
                                 "{:+.6e}",
-                                self.iterations.marker.y.to_f32().value()
+                                self.marker_iterations.position.y.to_f32().value()
                             ));
                             ui.end_row();
                         }
@@ -539,45 +541,57 @@ impl Controller {
 
                 egui::Grid::new("debug_grid").show(ui, |ui| {
                     ui.label("max iterations");
-                    ui.monospace(format!("{:.2}", self.num_iterations));
+                    ui.monospace(format!("{:.2}", self.calculate_num_iterations()));
                     ui.end_row();
 
                     ui.label("iteration mode");
-                    ui.monospace(format!("{:?}", self.iterations.mode));
+                    ui.monospace(format!("{:?}", self.iteration_mode));
                     ui.end_row();
 
-                    if self.iterations.enabled {
+                    if self.marker_iterations.enabled {
                         ui.label("num iterations");
-                        ui.monospace(format!("{:.2}", self.iterations.stats.count));
+                        ui.monospace(format!("{:.2}", self.marker_iterations.stats.count));
                         ui.end_row();
 
                         ui.label("proximity");
-                        ui.monospace(format!("{:.4}", self.iterations.stats.proximity));
+                        ui.monospace(format!("{:.4}", self.marker_iterations.stats.proximity));
                         ui.end_row();
                     }
                 });
-                if self.iterations.enabled {
+                if self.marker_iterations.enabled {
                     egui::Grid::new("iterations_debug_grid").show(ui, |ui| {
-                        let count = self.iterations.stats.count as f32;
+                        let count = self.marker_iterations.stats.count as f32;
                         ui.label("");
                         ui.label("final");
                         ui.label("sum");
                         ui.label("average");
                         ui.end_row();
                         ui.label("|z|");
-                        ui.monospace(format!("{:.4}", self.iterations.stats.final_norm));
-                        ui.monospace(format!("{:.4}", self.iterations.stats.norm_sum));
-                        ui.monospace(format!("{:.4}", self.iterations.stats.norm_sum / count));
+                        ui.monospace(format!("{:.4}", self.marker_iterations.stats.final_norm));
+                        ui.monospace(format!("{:.4}", self.marker_iterations.stats.norm_sum));
+                        ui.monospace(format!(
+                            "{:.4}",
+                            self.marker_iterations.stats.norm_sum / count
+                        ));
                         ui.end_row();
                         ui.label("angle");
-                        ui.monospace(format!("{:.4}", self.iterations.stats.final_angle));
-                        ui.monospace(format!("{:.4}", self.iterations.stats.angle_sum));
-                        ui.monospace(format!("{:.4}", self.iterations.stats.angle_sum / count));
+                        ui.monospace(format!("{:.4}", self.marker_iterations.stats.final_angle));
+                        ui.monospace(format!("{:.4}", self.marker_iterations.stats.angle_sum));
+                        ui.monospace(format!(
+                            "{:.4}",
+                            self.marker_iterations.stats.angle_sum / count
+                        ));
                         ui.end_row();
                         ui.label("distance");
-                        ui.monospace(format!("{:.4}", self.iterations.stats.final_distance));
-                        ui.monospace(format!("{:.4}", self.iterations.stats.distance_sum));
-                        ui.monospace(format!("{:.4}", self.iterations.stats.distance_sum / count));
+                        ui.monospace(format!(
+                            "{:.4}",
+                            self.marker_iterations.stats.final_distance
+                        ));
+                        ui.monospace(format!("{:.4}", self.marker_iterations.stats.distance_sum));
+                        ui.monospace(format!(
+                            "{:.4}",
+                            self.marker_iterations.stats.distance_sum / count
+                        ));
                         ui.end_row();
                     });
                 }

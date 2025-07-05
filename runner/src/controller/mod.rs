@@ -78,7 +78,7 @@ impl Camera {
 }
 
 #[derive(Clone, Copy, Default)]
-struct IterationStats {
+struct MarkerIterationStats {
     final_norm: f32,
     final_distance: f32,
     final_angle: f32,
@@ -89,28 +89,26 @@ struct IterationStats {
     count: u32,
 }
 
-struct Iterations {
+struct MarkerIterations {
     enabled: bool,
     dragging: bool,
-    marker: BigVec2,
+    position: BigVec2,
     points: Vec<Vec2>,
     points_buffer: Option<wgpu::Buffer>,
     recompute: bool,
-    stats: IterationStats,
-    mode: IterationMode,
+    stats: MarkerIterationStats,
 }
 
-impl Default for Iterations {
+impl Default for MarkerIterations {
     fn default() -> Self {
-        Iterations {
+        MarkerIterations {
             enabled: false,
             dragging: false,
-            marker: BigVec2::from_f64s(-0.767294, -0.169140),
+            position: BigVec2::from_f64s(-0.767294, -0.169140),
             points: vec![],
             points_buffer: None,
             recompute: false,
-            stats: IterationStats::default(),
-            mode: IterationMode::default(),
+            stats: MarkerIterationStats::default(),
         }
     }
 }
@@ -211,6 +209,47 @@ struct DeltaParams {
     exponent: f64,
 }
 
+struct NumIterations {
+    pub n: f64,
+    mode: NumIterationsMode,
+}
+
+enum NumIterationsMode {
+    Additional,
+    Fixed,
+}
+
+impl NumIterations {
+    fn calculate_num_iterations(&self, zoom: f64) -> f64 {
+        match self.mode {
+            NumIterationsMode::Additional => ((zoom + 1.0).log2() * 9.0 + self.n).max(1.0),
+            NumIterationsMode::Fixed => self.n,
+        }
+    }
+
+    fn toggle_mode(&mut self, zoom: f64) {
+        self.mode = match self.mode {
+            NumIterationsMode::Additional => {
+                self.n = self.calculate_num_iterations(zoom);
+                NumIterationsMode::Fixed
+            }
+            NumIterationsMode::Fixed => {
+                self.n = self.n - (zoom + 1.0).log2() * 9.0;
+                NumIterationsMode::Additional
+            }
+        };
+    }
+
+    fn slider_range(&self, zoom: f64) -> std::ops::RangeInclusive<f64> {
+        match self.mode {
+            NumIterationsMode::Additional => {
+                -((zoom + 1.0).log2() * 9.0)..=MAX_ADDITIONAL_ITERS as f64
+            }
+            NumIterationsMode::Fixed => 0.0..=MAX_ITER_POINTS as f64,
+        }
+    }
+}
+
 pub struct Controller {
     size: UVec2,
     start: Instant,
@@ -219,8 +258,8 @@ pub struct Controller {
     mouse_button_pressed: u32,
     cameras: Cameras,
     debug: bool,
-    num_iterations: f64,
-    iterations: Iterations,
+    num_iterations: NumIterations,
+    marker_iterations: MarkerIterations,
     context_menu: Option<DVec2>,
     render_julia_set: bool,
     render_split: RenderSplit,
@@ -230,21 +269,32 @@ pub struct Controller {
     animate: Animate,
     show_fps: bool,
     render_style: RenderStyle,
-    additional_iterations: f64,
     mandelbrot_reference: MandelbrotReference,
     render_partitioning: RenderPartitioning,
     delta_params: DeltaParams,
     exponent: f64,
     escape_radius: f32,
+    iteration_mode: IterationMode,
 }
 
 impl Controller {
     pub fn new(options: &Options) -> Self {
         debug_assert!(
             MAX_ITER_POINTS
-                >= calculate_num_iterations(MAX_ZOOM, MAX_ADDITIONAL_ITERS as f64) as u32
+                >= NumIterations {
+                    n: MAX_ITER_POINTS as f64,
+                    mode: NumIterationsMode::Fixed
+                }
+                .calculate_num_iterations(MAX_ZOOM) as u32
         );
-        let additional_iterations = 25.0;
+        debug_assert!(
+            MAX_ITER_POINTS
+                >= NumIterations {
+                    n: MAX_ADDITIONAL_ITERS as f64,
+                    mode: NumIterationsMode::Additional
+                }
+                .calculate_num_iterations(MAX_ZOOM) as u32
+        );
         let cameras = Cameras::default();
         Self {
             size: UVec2::ZERO,
@@ -252,13 +302,13 @@ impl Controller {
             last_instant: Instant::now(),
             cursor: DVec2::ZERO,
             mouse_button_pressed: 0,
-            num_iterations: calculate_num_iterations(
-                cameras.mandelbrot.zoom,
-                additional_iterations,
-            ),
+            num_iterations: NumIterations {
+                n: 25.0,
+                mode: NumIterationsMode::Additional,
+            },
             cameras,
             debug: options.debug,
-            iterations: Iterations::default(),
+            marker_iterations: MarkerIterations::default(),
             context_menu: None,
             render_julia_set: false,
             render_split: RenderSplit::default(),
@@ -268,12 +318,12 @@ impl Controller {
             animate: Animate::default(),
             show_fps: false,
             render_style: RenderStyle::default(),
-            additional_iterations,
             mandelbrot_reference: MandelbrotReference::default(),
             render_partitioning: RenderPartitioning::default(),
             delta_params: DeltaParams::default(),
             exponent: 2.0,
             escape_radius: 2.0,
+            iteration_mode: IterationMode::default(),
         }
     }
 
@@ -309,11 +359,11 @@ impl Controller {
     }
 
     fn can_grab_marker(&self) -> bool {
-        (self.iterations.enabled || self.render_julia_set)
+        (self.marker_iterations.enabled || self.render_julia_set)
             && !self.is_cursor_in_julia()
             && self
                 .cursor
-                .distance_squared(self.to_screen_space_big(&self.iterations.marker))
+                .distance_squared(self.to_screen_space_big(&self.marker_iterations.position))
                 < MARKER_RADIUS as f64 * MARKER_RADIUS as f64
     }
 
@@ -343,6 +393,11 @@ impl Controller {
         } else {
             MAX_ZOOM
         }
+    }
+
+    fn calculate_num_iterations(&self) -> f64 {
+        self.num_iterations
+            .calculate_num_iterations(self.cameras.mandelbrot.zoom)
     }
 }
 
@@ -415,14 +470,14 @@ impl ControllerTrait for Controller {
                         }
                         'G' => {
                             self.exponent = self.exponent.ceil() - 1.0;
-                            self.iterations.recompute = self.iterations.enabled;
+                            self.marker_iterations.recompute = self.marker_iterations.enabled;
                             self.mandelbrot_reference.recompute = true;
                             self.cameras.mandelbrot.needs_reiterate = true;
                             self.cameras.julia.needs_reiterate = true;
                         }
                         'H' => {
                             self.exponent = self.exponent.floor() + 1.0;
-                            self.iterations.recompute = self.iterations.enabled;
+                            self.marker_iterations.recompute = self.marker_iterations.enabled;
                             self.mandelbrot_reference.recompute = true;
                             self.cameras.mandelbrot.needs_reiterate = true;
                             self.cameras.julia.needs_reiterate = true;
@@ -504,10 +559,10 @@ impl ControllerTrait for Controller {
     fn mouse_move(&mut self, position: DVec2) {
         let prev_cursor = self.cursor;
         self.cursor = position;
-        if self.iterations.dragging {
-            self.iterations.marker +=
+        if self.marker_iterations.dragging {
+            self.marker_iterations.position +=
                 self.to_uv_space_big(self.cursor) - self.to_uv_space_big(prev_cursor);
-            self.iterations.recompute = self.iterations.enabled;
+            self.marker_iterations.recompute = self.marker_iterations.enabled;
             self.cameras.julia.needs_reiterate = true;
         } else if self.render_split.dragging.is_some() {
             let size = self.size.as_dvec2();
@@ -550,15 +605,11 @@ impl ControllerTrait for Controller {
         camera.zoom = (prev_zoom * (1.0 + val)).clamp(0.05, max_zoom);
         let mouse_pos1 = BigVec2::from_dvec2(cursor - size / 2.0) / camera.zoom / size.y;
         camera.translate += mouse_pos0 - mouse_pos1;
-        self.num_iterations = calculate_num_iterations(
-            self.cameras.mandelbrot.zoom,
-            self.additional_iterations as f64,
-        );
         self.cameras.julia.needs_reiterate = true;
         if !self.is_cursor_in_julia() {
             self.mandelbrot_reference.recompute = true;
             self.cameras.mandelbrot.needs_reiterate = true;
-            self.iterations.recompute = self.iterations.enabled;
+            self.marker_iterations.recompute = self.marker_iterations.enabled;
         }
     }
 
@@ -567,11 +618,11 @@ impl ControllerTrait for Controller {
             << match button {
                 MouseButton::Left => {
                     if matches!(state, ElementState::Pressed) {
-                        self.iterations.dragging = self.can_grab_marker();
+                        self.marker_iterations.dragging = self.can_grab_marker();
                         self.render_split.dragging = self.can_grab_render_split();
                         self.camera().grabbing = true;
                     } else {
-                        self.iterations.dragging = false;
+                        self.marker_iterations.dragging = false;
                         self.render_split.dragging = None;
                         for camera in self.cameras.iter_mut() {
                             camera.grabbing = false;
@@ -611,11 +662,15 @@ impl ControllerTrait for Controller {
             mandelbrot_camera_zoom: self.cameras.mandelbrot.zoom as f32,
             julia_camera_translate: self.cameras.julia.translate.as_vec2(),
             julia_camera_zoom: self.cameras.julia.zoom as f32,
-            num_iterations: self.num_iterations as f32,
-            show_iterations: (self.iterations.enabled && !self.iterations.points.is_empty()).into(),
-            num_points: self.iterations.points.len() as u32,
-            marker: self.iterations.marker.as_vec2(),
-            marker_screen_space: self.to_screen_space_big(&self.iterations.marker).as_vec2(),
+            num_iterations: self.calculate_num_iterations() as f32,
+            show_iterations: (self.marker_iterations.enabled
+                && !self.marker_iterations.points.is_empty())
+            .into(),
+            num_points: self.marker_iterations.points.len() as u32,
+            marker: self.marker_iterations.position.as_vec2(),
+            marker_screen_space: self
+                .to_screen_space_big(&self.marker_iterations.position)
+                .as_vec2(),
             render_julia_set: self.render_julia_set.into(),
             render_split: self.render_split.value as f32,
             palette: self.palette,
@@ -626,7 +681,7 @@ impl ControllerTrait for Controller {
             mandelbrot_num_ref_iterations: self.mandelbrot_reference.num_ref_iterations,
             needs_reiterate_mandelbrot: needs_reiterate_mandelbrot.into(),
             needs_reiterate_julia: needs_reiterate_julia.into(),
-            iteration_mode: self.iterations.mode,
+            iteration_mode: self.iteration_mode,
             render_partitioning: self.render_partitioning,
             exponent: self.exponent as f32,
             escape_radius: self.escape_radius,
@@ -662,7 +717,7 @@ impl ControllerTrait for Controller {
     fn receive_buffers(&mut self, mut buffers: Vec<wgpu::Buffer>) {
         debug_assert!(buffers.len() == 2);
         self.mandelbrot_reference.buffer = Some(buffers.pop().unwrap());
-        self.iterations.points_buffer = Some(buffers.pop().unwrap());
+        self.marker_iterations.points_buffer = Some(buffers.pop().unwrap());
     }
 
     fn ui(
@@ -673,8 +728,4 @@ impl ControllerTrait for Controller {
     ) {
         self.ui_impl(ctx, ui_state, graphics_context);
     }
-}
-
-fn calculate_num_iterations(zoom: f64, c: f64) -> f64 {
-    ((zoom + 1.0).log2() * 9.0 + c).max(1.0)
 }
