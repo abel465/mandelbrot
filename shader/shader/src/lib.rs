@@ -285,8 +285,8 @@ impl<T: Mandelbrot> RenderParameterBuilder<'_, T> {
     fn iterations(self) -> RenderParameters {
         let MandelbrotResult { inside, i, h } =
             self.mandelbrot_input.iterate(self.constants, |_| {});
-        let x0 = (i - 1) as f32;
-        let x1 = i as f32;
+        let x0 = i as f32;
+        let x1 = (i + 1) as f32;
         RenderParameters::new(self.constants, inside, i, h, x0, x1)
     }
 
