@@ -220,9 +220,15 @@ enum NumIterationsMode {
 }
 
 impl NumIterations {
+    fn calculate_additional_iterations(&self, zoom: f64) -> f64 {
+        (zoom + 1.0).log2() * 9.0
+    }
+
     fn calculate_num_iterations(&self, zoom: f64) -> f64 {
         match self.mode {
-            NumIterationsMode::Additional => ((zoom + 1.0).log2() * 9.0 + self.n).max(1.0),
+            NumIterationsMode::Additional => {
+                (self.calculate_additional_iterations(zoom) + self.n).max(1.0)
+            }
             NumIterationsMode::Fixed => self.n,
         }
     }
@@ -234,7 +240,7 @@ impl NumIterations {
                 NumIterationsMode::Fixed
             }
             NumIterationsMode::Fixed => {
-                self.n = self.n - (zoom + 1.0).log2() * 9.0;
+                self.n = self.n - self.calculate_additional_iterations(zoom);
                 NumIterationsMode::Additional
             }
         };
@@ -243,10 +249,34 @@ impl NumIterations {
     fn slider_range(&self, zoom: f64) -> std::ops::RangeInclusive<f64> {
         match self.mode {
             NumIterationsMode::Additional => {
-                -((zoom + 1.0).log2() * 9.0)..=MAX_ADDITIONAL_ITERS as f64
+                -self.calculate_additional_iterations(zoom)..=MAX_ADDITIONAL_ITERS as f64
             }
             NumIterationsMode::Fixed => 0.0..=MAX_ITER_POINTS as f64,
         }
+    }
+
+    fn prev_whole_iteration(&mut self, zoom: f64) {
+        match self.mode {
+            NumIterationsMode::Additional => {
+                let n = self.calculate_additional_iterations(zoom);
+                self.n = (n + self.n).ceil() - 1.0 - n;
+            }
+            NumIterationsMode::Fixed => {
+                self.n = self.n.ceil() - 1.0;
+            }
+        };
+    }
+
+    fn next_whole_iteration(&mut self, zoom: f64) {
+        match self.mode {
+            NumIterationsMode::Additional => {
+                let n = self.calculate_additional_iterations(zoom);
+                self.n = (n + self.n).floor() + 1.0 - n;
+            }
+            NumIterationsMode::Fixed => {
+                self.n = self.n.floor() + 1.0;
+            }
+        };
     }
 }
 

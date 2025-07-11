@@ -145,6 +145,22 @@ impl super::Controller {
                         self.cameras.mandelbrot.needs_reiterate = true;
                         self.cameras.julia.needs_reiterate = true;
                     }
+                    'U' => {
+                        self.num_iterations
+                            .prev_whole_iteration(self.cameras.mandelbrot.zoom);
+                        self.marker_iterations.recompute = self.marker_iterations.enabled;
+                        self.mandelbrot_reference.recompute = true;
+                        self.cameras.mandelbrot.needs_reiterate = true;
+                        self.cameras.julia.needs_reiterate = true;
+                    }
+                    'I' => {
+                        self.num_iterations
+                            .next_whole_iteration(self.cameras.mandelbrot.zoom);
+                        self.marker_iterations.recompute = self.marker_iterations.enabled;
+                        self.mandelbrot_reference.recompute = true;
+                        self.cameras.mandelbrot.needs_reiterate = true;
+                        self.cameras.julia.needs_reiterate = true;
+                    }
                     _ => {}
                 }
             }
