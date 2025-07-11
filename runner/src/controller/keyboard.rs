@@ -64,20 +64,6 @@ impl super::Controller {
                         'h' => {
                             self.delta_params.exponent = self.delta_params.exponent.min(0.0);
                         }
-                        'G' => {
-                            self.exponent = self.exponent.ceil() - 1.0;
-                            self.marker_iterations.recompute = self.marker_iterations.enabled;
-                            self.mandelbrot_reference.recompute = true;
-                            self.cameras.mandelbrot.needs_reiterate = true;
-                            self.cameras.julia.needs_reiterate = true;
-                        }
-                        'H' => {
-                            self.exponent = self.exponent.floor() + 1.0;
-                            self.marker_iterations.recompute = self.marker_iterations.enabled;
-                            self.mandelbrot_reference.recompute = true;
-                            self.cameras.mandelbrot.needs_reiterate = true;
-                            self.cameras.julia.needs_reiterate = true;
-                        }
                         _ => {}
                     }
                 }
@@ -144,6 +130,20 @@ impl super::Controller {
                             'h' => z,
                             _ => unreachable!(),
                         };
+                    }
+                    'G' => {
+                        self.exponent = self.exponent.ceil() - 1.0;
+                        self.marker_iterations.recompute = self.marker_iterations.enabled;
+                        self.mandelbrot_reference.recompute = true;
+                        self.cameras.mandelbrot.needs_reiterate = true;
+                        self.cameras.julia.needs_reiterate = true;
+                    }
+                    'H' => {
+                        self.exponent = self.exponent.floor() + 1.0;
+                        self.marker_iterations.recompute = self.marker_iterations.enabled;
+                        self.mandelbrot_reference.recompute = true;
+                        self.cameras.mandelbrot.needs_reiterate = true;
+                        self.cameras.julia.needs_reiterate = true;
                     }
                     _ => {}
                 }
