@@ -7,6 +7,9 @@ impl super::Controller {
     pub fn keyboard_input_impl(&mut self, key: KeyEvent) {
         if !key.state.is_pressed() {
             match key.logical_key {
+                Key::Named(NamedKey::Control) => {
+                    self.ctrl_down = false;
+                }
                 Key::Named(NamedKey::ArrowDown) => {
                     self.delta_params.translate.y = self.delta_params.translate.y.min(0.0);
                 }
@@ -73,6 +76,9 @@ impl super::Controller {
         }
         let move_speed = 0.2;
         match key.logical_key {
+            Key::Named(NamedKey::Control) => {
+                self.ctrl_down = true;
+            }
             Key::Named(NamedKey::ArrowDown) => {
                 self.delta_params.translate.y = move_speed;
             }

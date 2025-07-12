@@ -175,10 +175,17 @@ impl Controller {
             self.marker_iterations.recompute = self.marker_iterations.enabled;
         }
         if self.delta_params.translate.x != 0.0 || self.delta_params.translate.y != 0.0 {
-            self.cameras.mandelbrot.translate +=
-                self.delta_params.translate / self.cameras.mandelbrot.zoom * dt;
-            self.cameras.mandelbrot.needs_reiterate = true;
-            self.mandelbrot_reference.recompute = true;
+            if self.ctrl_down && self.marker_iterations.enabled || self.render_julia_set {
+                self.marker_iterations.position +=
+                    self.delta_params.translate / self.cameras.mandelbrot.zoom * dt;
+                self.marker_iterations.recompute = self.marker_iterations.enabled;
+                self.cameras.julia.needs_reiterate = self.render_julia_set;
+            } else {
+                self.cameras.mandelbrot.translate +=
+                    self.delta_params.translate / self.cameras.mandelbrot.zoom * dt;
+                self.cameras.mandelbrot.needs_reiterate = true;
+                self.mandelbrot_reference.recompute = true;
+            }
         }
         if self.delta_params.period != 0.0 {
             self.palette_period *= (self.delta_params.period as f32 - 1.0) * dt as f32 + 1.0;

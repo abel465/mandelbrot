@@ -305,6 +305,7 @@ pub struct Controller {
     exponent: f64,
     escape_radius: f32,
     iteration_mode: IterationMode,
+    ctrl_down: bool,
 }
 
 impl Controller {
@@ -354,6 +355,7 @@ impl Controller {
             exponent: 2.0,
             escape_radius: 2.0,
             iteration_mode: IterationMode::default(),
+            ctrl_down: false,
         }
     }
 
