@@ -104,7 +104,7 @@ impl Controller {
         let mut prev_norm;
         let mut norm = 0.0;
         let mut i = 0;
-        let num_iters = self.calculate_num_iterations() as u32;
+        let num_iters = self.calculate_num_iterations().ceil() as u32;
         self.marker_iterations.points.push(z.0);
         loop {
             if i >= num_iters {
@@ -117,6 +117,7 @@ impl Controller {
             } else {
                 z = z.powf(self.exponent as f32) + c;
             }
+            i += 1;
             stats.angle_sum += angle_between_three_points(prev_prev_z.0, prev_z.0, z.0);
             stats.distance_sum += prev_z.distance(z.0);
             prev_norm = norm;
@@ -126,10 +127,13 @@ impl Controller {
             if norm >= self.escape_radius {
                 stats.final_distance = prev_z.distance(z.0);
                 stats.final_angle = z.arg();
-                stats.count = i + 1;
+                stats.count = i;
                 stats.final_norm = norm;
                 stats.proximity = get_proximity(prev_norm, norm, self.escape_radius);
                 while norm < self.escape_radius.max(1e4) {
+                    if i >= num_iters {
+                        break;
+                    }
                     if self.exponent == 2.0 {
                         z = z * z + c;
                     } else {
@@ -138,20 +142,16 @@ impl Controller {
                     norm = z.norm();
                     self.marker_iterations.points.push(z.0);
                     i += 1;
-                    if i >= num_iters {
-                        break;
-                    }
                 }
                 break;
             }
-            if i + 1 == num_iters {
+            if i == num_iters {
                 stats.final_distance = prev_z.distance(z.0);
                 stats.final_angle = z.arg();
-                stats.count = i + 1;
+                stats.count = i;
                 stats.final_norm = norm;
                 stats.proximity = get_proximity(prev_norm, norm, self.escape_radius);
             }
-            i += 1;
         }
         self.marker_iterations.stats = stats;
 

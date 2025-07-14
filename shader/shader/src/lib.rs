@@ -58,7 +58,7 @@ impl Mandelbrot for RegularMandelbrot {
         mut f: F,
     ) -> MandelbrotResult {
         let RegularMandelbrot { z0: mut z, c } = self;
-        let num_iters = constants.num_iterations as u32;
+        let num_iters = constants.num_iterations as u32 + 1;
         let mut i = 0;
         let mut prev_norm_sq = 0.0;
         let mut norm_sq = z.norm_squared();
@@ -106,7 +106,7 @@ impl Mandelbrot for PerturbedMandelbrot<'_> {
             reference_points,
             num_ref_iterations,
         } = self;
-        let num_iters = constants.num_iterations as u32;
+        let num_iters = constants.num_iterations as u32 + 1;
         let mut i = 0;
         let mut prev_norm_sq = 0.0;
         let mut norm_sq = z0.norm_squared();
