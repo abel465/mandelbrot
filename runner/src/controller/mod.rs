@@ -545,7 +545,6 @@ impl ControllerTrait for Controller {
         FragmentConstants {
             size: self.size.into(),
             time: self.start.elapsed().as_secs_f32(),
-            cursor: self.cursor.as_vec2(),
             mandelbrot_camera_translate: self.cameras.mandelbrot.translate.as_vec2(),
             mandelbrot_camera_zoom: self.cameras.mandelbrot.zoom as f32,
             julia_camera_translate: self.cameras.julia.translate.as_vec2(),

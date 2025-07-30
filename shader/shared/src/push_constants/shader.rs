@@ -85,7 +85,6 @@ pub enum RenderPartitioning {
 #[derive(Copy, Clone, Debug, NoUninit)]
 #[repr(C)]
 pub struct FragmentConstants {
-    pub cursor: Vec2,
     pub mandelbrot_camera_translate: Vec2,
     pub julia_camera_translate: Vec2,
     pub size: Size,

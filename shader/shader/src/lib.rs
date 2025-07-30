@@ -12,10 +12,6 @@ use spirv_std::spirv;
 mod palette;
 mod sdf;
 
-pub fn lerp(x: f32, y: f32, a: f32) -> f32 {
-    x * (1.0 - a) + y * a
-}
-
 fn get_col(palette: Palette, x: f32) -> Vec3 {
     match palette {
         Palette::RGB => palette::rgb(x),
