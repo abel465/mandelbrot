@@ -14,7 +14,7 @@ pub const GRID_SIZE: UVec2 = uvec2(2880, 1620);
 // Given lerp(x, y, a) = e, x < e, y >= e
 // Returns 'a' which is a value between 0 and 1
 pub fn get_proximity(x: f32, y: f32, e: f32) -> f32 {
-    f32::inverse_lerp(x, y, e).sqrt()
+    f32::inverse_lerp(x, y, e).powf(1.0 / (1.0 + e.log10()))
 }
 
 pub fn smoothstep(edge0: f32, edge1: f32, x: f32) -> f32 {
