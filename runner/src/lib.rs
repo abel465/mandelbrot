@@ -15,6 +15,8 @@ pub struct Options {
     debug: bool,
 }
 
+const TITLE: &str = "Fractal Explorer";
+
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub fn main() {
     let options = Options::from_args();
@@ -24,9 +26,9 @@ pub fn main() {
             any(feature = "hot-reload-shader", feature = "runtime-compilation"),
             not(target_arch = "wasm32")
         ))] {
-            easy_shader_runner::run_with_runtime_compilation(controller, "../shader/shader");
+            easy_shader_runner::run_with_runtime_compilation(controller, "../shader/shader", TITLE);
         } else {
-            easy_shader_runner::run_with_prebuilt_shader(controller, include_bytes!(env!("shader.spv")));
+            easy_shader_runner::run_with_prebuilt_shader(controller, include_bytes!(env!("shader.spv")), TITLE);
         }
     }
 }

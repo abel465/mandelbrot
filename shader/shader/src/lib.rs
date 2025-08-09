@@ -155,12 +155,12 @@ pub fn main_fs(
     #[spirv(push_constant)]
     constants: &FragmentConstants,
     #[cfg(feature = "emulate_constants")]
-    #[spirv(storage_buffer, descriptor_set = 3, binding = 0)]
+    #[spirv(storage_buffer, descriptor_set = 1, binding = 0)]
     constants: &FragmentConstants,
     #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] iteration_points: &[Vec2],
-    #[spirv(storage_buffer, descriptor_set = 1, binding = 0)]
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 1)]
     mandelbrot_reference_points: &[Complex],
-    #[spirv(storage_buffer, descriptor_set = 2, binding = 0)] grid: &mut [RenderParameters],
+    #[spirv(storage_buffer, descriptor_set = 0, binding = 2)] grid: &mut [RenderParameters],
     output: &mut Vec4,
 ) {
     let coord = frag_coord.xy();

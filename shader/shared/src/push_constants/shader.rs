@@ -1,8 +1,10 @@
 use super::*;
 use crate::*;
+#[cfg(not(target_arch = "spirv"))]
 use bytemuck::NoUninit;
 
-#[derive(Copy, Clone, Debug, NoUninit, Default, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[cfg_attr(not(target_arch = "spirv"), derive(NoUninit))]
 #[repr(u32)]
 pub enum RenderStyle {
     #[default]
@@ -15,7 +17,8 @@ pub enum RenderStyle {
     AngleSum,
 }
 
-#[derive(Copy, Clone, Debug, NoUninit, Default, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[cfg_attr(not(target_arch = "spirv"), derive(NoUninit))]
 #[repr(u32)]
 pub enum Palette {
     #[default]
@@ -31,7 +34,8 @@ pub enum Palette {
     NeonC,
 }
 
-#[derive(Copy, Clone, Debug, NoUninit, Default)]
+#[derive(Copy, Clone, Debug, Default)]
+#[cfg_attr(not(target_arch = "spirv"), derive(NoUninit))]
 #[repr(C)]
 pub struct RenderParameters {
     pub i: u32,
@@ -65,7 +69,8 @@ impl RenderParameters {
     }
 }
 
-#[derive(Copy, Clone, Debug, NoUninit, Default, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[cfg_attr(not(target_arch = "spirv"), derive(NoUninit))]
 #[repr(u32)]
 pub enum IterationMode {
     #[default]
@@ -73,7 +78,8 @@ pub enum IterationMode {
     Perturbation,
 }
 
-#[derive(Copy, Clone, Debug, NoUninit, Default, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[cfg_attr(not(target_arch = "spirv"), derive(NoUninit))]
 #[repr(u32)]
 pub enum RenderPartitioning {
     #[default]
@@ -82,7 +88,8 @@ pub enum RenderPartitioning {
     Both,
 }
 
-#[derive(Copy, Clone, Debug, NoUninit)]
+#[derive(Copy, Clone, Debug)]
+#[cfg_attr(not(target_arch = "spirv"), derive(NoUninit))]
 #[repr(C)]
 pub struct FragmentConstants {
     pub mandelbrot_camera_translate: Vec2,

@@ -8,8 +8,13 @@ license.workspace = true
 
 [dependencies]
 spirv-std = { workspace = true }
-bytemuck = { workspace = true, features = ["derive"] }
+
+[target.'cfg(target_arch = "spirv")'.dependencies]
+glam = { workspace = true }
+
+[target.'cfg(not(target_arch = "spirv"))'.dependencies]
 glam = { workspace = true, features = ["bytemuck"] }
+bytemuck = { workspace = true, features = ["derive"] }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = [

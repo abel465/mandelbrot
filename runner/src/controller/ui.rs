@@ -1,5 +1,5 @@
 use super::Controller;
-use easy_shader_runner::{egui, UiState};
+use easy_shader_runner::{UiState, egui};
 use glam::*;
 use push_constants::shader::*;
 use shared::*;
@@ -226,7 +226,7 @@ impl Controller {
 
     fn context_menu_window(&mut self, ctx: &egui::Context, pos: DVec2) {
         let r = egui::Window::new("right_click_menu")
-            .frame(egui::Frame::none())
+            .frame(egui::Frame::NONE)
             .title_bar(false)
             .resizable(false)
             .fixed_pos([pos.x as f32, pos.y as f32])
@@ -426,7 +426,7 @@ impl Controller {
                     if ui
                         .add_enabled(
                             self.animate.enable,
-                            egui::SelectableLabel::new(self.animate.reverse, "Reverse"),
+                            egui::Button::selectable(self.animate.reverse, "Reverse"),
                         )
                         .clicked()
                     {

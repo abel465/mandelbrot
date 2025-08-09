@@ -1,8 +1,8 @@
-use crate::big_vec2::BigVec2;
 use crate::Options;
+use crate::big_vec2::BigVec2;
 use dashu::float::FBig;
 use dashu::integer::IBig;
-use easy_shader_runner::{egui, wgpu, winit, ControllerTrait, UiState};
+use easy_shader_runner::{ControllerTrait, GraphicsContext, UiState, egui, wgpu, winit};
 use glam::*;
 use shared::push_constants::shader::*;
 use shared::*;
@@ -143,11 +143,7 @@ impl Default for Smooth {
 
 impl Smooth {
     fn factor(&self) -> f32 {
-        if self.enable {
-            self.value
-        } else {
-            0.0
-        }
+        if self.enable { self.value } else { 0.0 }
     }
 }
 
@@ -536,7 +532,11 @@ impl ControllerTrait for Controller {
         }
     }
 
-    fn prepare_render(&mut self, _offset: Vec2) -> impl bytemuck::NoUninit {
+    fn prepare_render(
+        &mut self,
+        _gfx_ctx: &GraphicsContext,
+        _offset: Vec2,
+    ) -> impl bytemuck::NoUninit {
         self.animate.tick();
         let needs_reiterate_mandelbrot = self.cameras.mandelbrot.needs_reiterate;
         let needs_reiterate_julia = self.cameras.julia.needs_reiterate;
@@ -575,44 +575,94 @@ impl ControllerTrait for Controller {
         }
     }
 
-    fn describe_buffers(&self) -> Vec<easy_shader_runner::BufferDescriptor> {
-        use easy_shader_runner::wgpu;
-        vec![
-            easy_shader_runner::BufferDescriptor {
-                data: &[0; std::mem::size_of::<Vec2>() * MAX_ITER_POINTS as usize],
-                read_only: true,
-                shader_stages: wgpu::ShaderStages::FRAGMENT,
-                cpu_writable: true,
-            },
-            easy_shader_runner::BufferDescriptor {
-                data: &[0; std::mem::size_of::<Vec2>() * MAX_ITER_POINTS as usize],
-                read_only: true,
-                shader_stages: wgpu::ShaderStages::FRAGMENT,
-                cpu_writable: true,
-            },
-            easy_shader_runner::BufferDescriptor {
-                data: &[0; std::mem::size_of::<RenderParameters>()
-                    * GRID_SIZE.x as usize
-                    * GRID_SIZE.y as usize],
-                read_only: false,
-                shader_stages: wgpu::ShaderStages::FRAGMENT,
-                cpu_writable: false,
-            },
-        ]
-    }
-
-    fn receive_buffers(&mut self, mut buffers: Vec<wgpu::Buffer>) {
-        debug_assert!(buffers.len() == 2);
-        self.mandelbrot_reference.buffer = Some(buffers.pop().unwrap());
-        self.marker_iterations.points_buffer = Some(buffers.pop().unwrap());
-    }
-
-    fn ui(
+    fn describe_bind_groups(
         &mut self,
-        ctx: &egui::Context,
-        ui_state: &mut UiState,
-        graphics_context: &easy_shader_runner::GraphicsContext,
-    ) {
-        self.ui_impl(ctx, ui_state, graphics_context);
+        gfx_ctx: &GraphicsContext,
+    ) -> (Vec<wgpu::BindGroupLayout>, Vec<wgpu::BindGroup>) {
+        let device = &gfx_ctx.device;
+        let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: false },
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+            ],
+            label: Some("bind_group_layout"),
+        });
+
+        use wgpu::util::DeviceExt;
+        let marker_iteration_points_buffer =
+            device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("inside_particles_buffer"),
+                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+                contents: &[0; std::mem::size_of::<Vec2>() * MAX_ITER_POINTS as usize],
+            });
+        let perturbation_points_buffer =
+            device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("inside_particles_buffer"),
+                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+                contents: &[0; std::mem::size_of::<Vec2>() * MAX_ITER_POINTS as usize],
+            });
+        let render_params_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("fading_particles_buffer"),
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            contents: &[0; std::mem::size_of::<RenderParameters>()
+                * GRID_SIZE.x as usize
+                * GRID_SIZE.y as usize],
+        });
+
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: marker_iteration_points_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: perturbation_points_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: render_params_buffer.as_entire_binding(),
+                },
+            ],
+            label: Some("particles_bind_group"),
+        });
+
+        self.marker_iterations.points_buffer = Some(marker_iteration_points_buffer);
+        self.mandelbrot_reference.buffer = Some(perturbation_points_buffer);
+
+        (vec![layout], vec![bind_group])
+    }
+
+    fn ui(&mut self, ctx: &egui::Context, ui_state: &mut UiState, gfx_ctx: &GraphicsContext) {
+        self.ui_impl(ctx, ui_state, gfx_ctx);
     }
 }
