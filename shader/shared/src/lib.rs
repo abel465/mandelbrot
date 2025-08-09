@@ -1,8 +1,9 @@
 #![cfg_attr(target_arch = "spirv", no_std)]
 
-pub mod complex;
 pub mod grid;
 pub mod push_constants;
+
+pub use abels_complex as complex;
 
 use glam::*;
 #[cfg(target_arch = "spirv")]

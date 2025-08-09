@@ -11,10 +11,18 @@ spirv-std = { workspace = true }
 
 [target.'cfg(target_arch = "spirv")'.dependencies]
 glam = { workspace = true }
+abels-complex = { version = "0.1.0", default-features = false, features = [
+  "libm",
+  "glam",
+] }
 
 [target.'cfg(not(target_arch = "spirv"))'.dependencies]
 glam = { workspace = true, features = ["bytemuck"] }
 bytemuck = { workspace = true, features = ["derive"] }
+abels-complex = { version = "0.1.0", default-features = false, features = [
+  "std",
+  "glam",
+] }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = [

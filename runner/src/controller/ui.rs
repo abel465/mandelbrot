@@ -105,7 +105,7 @@ impl Controller {
         let mut norm = 0.0;
         let mut i = 0;
         let num_iters = self.calculate_num_iterations().ceil() as u32;
-        self.marker_iterations.points.push(z.0);
+        self.marker_iterations.points.push(z.into());
         loop {
             if i >= num_iters {
                 break;
@@ -115,17 +115,18 @@ impl Controller {
             if self.exponent == 2.0 {
                 z = z * z + c;
             } else {
-                z = z.powf(self.exponent as f32) + c;
+                z = z.powf(self.exponent as f32).to_rectangular() + c;
             }
             i += 1;
-            stats.angle_sum += angle_between_three_points(prev_prev_z.0, prev_z.0, z.0);
-            stats.distance_sum += prev_z.distance(z.0);
+            stats.angle_sum +=
+                angle_between_three_points(prev_prev_z.into(), prev_z.into(), z.into());
+            stats.distance_sum += prev_z.distance(z);
             prev_norm = norm;
-            norm = z.norm();
+            norm = z.abs();
             stats.norm_sum += norm;
-            self.marker_iterations.points.push(z.0);
+            self.marker_iterations.points.push(z.into());
             if norm >= self.escape_radius {
-                stats.final_distance = prev_z.distance(z.0);
+                stats.final_distance = prev_z.distance(z);
                 stats.final_angle = z.arg();
                 stats.count = i;
                 stats.final_norm = norm;
@@ -137,16 +138,16 @@ impl Controller {
                     if self.exponent == 2.0 {
                         z = z * z + c;
                     } else {
-                        z = z.powf(self.exponent as f32) + c;
+                        z = z.powf(self.exponent as f32).to_rectangular() + c;
                     }
-                    norm = z.norm();
-                    self.marker_iterations.points.push(z.0);
+                    norm = z.abs();
+                    self.marker_iterations.points.push(z.into());
                     i += 1;
                 }
                 break;
             }
             if i == num_iters {
-                stats.final_distance = prev_z.distance(z.0);
+                stats.final_distance = prev_z.distance(z);
                 stats.final_angle = z.arg();
                 stats.count = i;
                 stats.final_norm = norm;

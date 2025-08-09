@@ -19,6 +19,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b2187590a23ab1e3df8681afdf0987c48504d80291f002fcdb651f0ef5e25169"
 
 [[package]]
+name = "abels-complex"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8186eeaa83a91a50eebdf84448ec825c098f42e7b22984c14dab2cbc103f87ee"
+dependencies = [
+ "glam",
+ "num-traits",
+]
+
+[[package]]
 name = "adler2"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2726,6 +2736,7 @@ dependencies = [
 name = "shared"
 version = "0.0.0"
 dependencies = [
+ "abels-complex",
  "bytemuck",
  "glam",
  "spirv-std",

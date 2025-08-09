@@ -57,15 +57,15 @@ impl Mandelbrot for RegularMandelbrot {
         let num_iters = constants.num_iterations as u32 + 1;
         let mut i = 0;
         let mut prev_norm_sq = 0.0;
-        let mut norm_sq = z.norm_squared();
+        let mut norm_sq = z.abs_sq();
         while norm_sq < constants.escape_radius_sq() && i < num_iters {
             if constants.exponent == 2.0 {
                 z = z * z + c;
             } else {
-                z = z.powf(constants.exponent) + c;
+                z = z.powf(constants.exponent).to_rectangular() + c;
             }
             prev_norm_sq = norm_sq;
-            norm_sq = z.norm_squared();
+            norm_sq = z.abs_sq();
             i += 1;
             f(z);
         }
@@ -105,7 +105,7 @@ impl Mandelbrot for PerturbedMandelbrot<'_> {
         let num_iters = constants.num_iterations as u32 + 1;
         let mut i = 0;
         let mut prev_norm_sq = 0.0;
-        let mut norm_sq = z0.norm_squared();
+        let mut norm_sq = z0.abs_sq();
         let mut ref_i = 0;
 
         while norm_sq < constants.escape_radius_sq() && i < num_iters {
@@ -113,10 +113,10 @@ impl Mandelbrot for PerturbedMandelbrot<'_> {
             ref_i += 1;
             let z = reference_points[ref_i] + dz;
             prev_norm_sq = norm_sq;
-            norm_sq = z.norm_squared();
+            norm_sq = z.abs_sq();
             i += 1;
             f(z);
-            if norm_sq < dz.norm_squared() || ref_i >= num_ref_iterations {
+            if norm_sq < dz.abs_sq() || ref_i >= num_ref_iterations {
                 dz = z;
                 ref_i = 0;
             }
@@ -306,8 +306,8 @@ impl<T: Mandelbrot> RenderParameterBuilder<'_, T> {
                 zs[1] = zs[2];
                 zs[2] = z;
             });
-        let ds0 = zs[0].distance(zs[1].0);
-        let ds1 = zs[1].distance(zs[2].0);
+        let ds0 = zs[0].distance(zs[1]);
+        let ds1 = zs[1].distance(zs[2]);
         RenderParameters::new(self.constants, inside, i, h, ds0, ds1)
     }
 
@@ -318,7 +318,7 @@ impl<T: Mandelbrot> RenderParameterBuilder<'_, T> {
         let MandelbrotResult { inside, i, h } =
             self.mandelbrot_input.iterate(self.constants, |z| {
                 prev_dist = dist;
-                dist += prev_z.distance(z.0);
+                dist += prev_z.distance(z);
                 prev_z = z;
             });
         RenderParameters::new(self.constants, inside, i, h, prev_dist, dist)
@@ -330,7 +330,7 @@ impl<T: Mandelbrot> RenderParameterBuilder<'_, T> {
         let MandelbrotResult { inside, i, h } =
             self.mandelbrot_input.iterate(self.constants, |z| {
                 prev_norm_sum = norm_sum;
-                norm_sum += z.norm();
+                norm_sum += z.abs();
             });
         RenderParameters::new(self.constants, inside, i, h, prev_norm_sum, norm_sum)
     }
@@ -342,8 +342,8 @@ impl<T: Mandelbrot> RenderParameterBuilder<'_, T> {
                 zs[0] = zs[1];
                 zs[1] = z;
             });
-        let norm0 = zs[0].norm();
-        let norm1 = zs[1].norm();
+        let norm0 = zs[0].abs();
+        let norm1 = zs[1].abs();
         RenderParameters::new(self.constants, inside, i, h, norm0, norm1)
     }
 
