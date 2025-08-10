@@ -6,14 +6,17 @@ use easy_shader_runner::{ControllerTrait, GraphicsContext, UiState, egui, wgpu, 
 use glam::*;
 use shared::push_constants::shader::*;
 use shared::*;
+use std::collections::HashMap;
 use std::str::FromStr;
 use web_time::Instant;
-use winit::event::{ElementState, MouseButton};
+use winit::event::{ElementState, MouseButton, TouchPhase};
 
 mod keyboard;
+mod touch;
 mod ui;
 
-const MAX_ZOOM: f64 = 1e36;
+const MAX_ZOOM_MANDELBROT: f64 = 1e36;
+const MAX_ZOOM_JULIA: f64 = 999999.9;
 const MAX_ITER_POINTS: u32 = 1307;
 const MAX_ADDITIONAL_ITERS: u32 = 200;
 const PRECISION: usize = 192;
@@ -276,6 +279,26 @@ impl NumIterations {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+enum TouchType {
+    Mandelbrot,
+    Julia,
+    RenderSplit,
+    Marker,
+}
+
+#[derive(Clone, Copy)]
+struct Touch {
+    pos: DVec2,
+    touch_type: TouchType,
+}
+
+impl Touch {
+    fn new(pos: DVec2, touch_type: TouchType) -> Self {
+        Self { pos, touch_type }
+    }
+}
+
 pub struct Controller {
     size: UVec2,
     start: Instant,
@@ -302,6 +325,7 @@ pub struct Controller {
     escape_radius: f32,
     iteration_mode: IterationMode,
     ctrl_down: bool,
+    touches: HashMap<u64, Touch>,
 }
 
 impl Controller {
@@ -312,7 +336,7 @@ impl Controller {
                     n: MAX_ITER_POINTS as f64,
                     mode: NumIterationsMode::Fixed
                 }
-                .calculate_num_iterations(MAX_ZOOM) as u32
+                .calculate_num_iterations(MAX_ZOOM_MANDELBROT) as u32
         );
         debug_assert!(
             MAX_ITER_POINTS
@@ -320,7 +344,7 @@ impl Controller {
                     n: MAX_ADDITIONAL_ITERS as f64,
                     mode: NumIterationsMode::Additional
                 }
-                .calculate_num_iterations(MAX_ZOOM) as u32
+                .calculate_num_iterations(MAX_ZOOM_MANDELBROT) as u32
         );
         let cameras = Cameras::default();
         Self {
@@ -352,6 +376,7 @@ impl Controller {
             escape_radius: 2.0,
             iteration_mode: IterationMode::default(),
             ctrl_down: false,
+            touches: HashMap::new(),
         }
     }
 
@@ -374,41 +399,53 @@ impl Controller {
             + 0.5 * size
     }
 
-    fn can_grab_render_split(&self) -> Option<egui::CursorIcon> {
+    fn pos_on_render_split(&self, pos: DVec2) -> Option<egui::CursorIcon> {
         let (n, icon) = if self.size.x > self.size.y {
             (DVec2::X, egui::CursorIcon::ResizeHorizontal)
         } else {
             (DVec2::Y, egui::CursorIcon::ResizeVertical)
         };
         (self.render_julia_set
-            && ((self.cursor / self.size.as_dvec2()).dot(n).abs() - self.render_split.value).abs()
-                < 0.004)
+            && ((pos / self.size.as_dvec2()).dot(n).abs() - self.render_split.value).abs() < 0.004)
             .then_some(icon)
     }
 
+    fn can_grab_render_split(&self) -> Option<egui::CursorIcon> {
+        self.pos_on_render_split(self.cursor)
+    }
+
     fn can_grab_marker(&self) -> bool {
+        self.pos_on_marker(self.cursor)
+    }
+
+    fn pos_on_marker(&self, pos: DVec2) -> bool {
         (self.marker_iterations.enabled || self.render_julia_set)
             && !self.is_cursor_in_julia()
-            && self
-                .cursor
-                .distance_squared(self.to_screen_space_big(&self.marker_iterations.position))
+            && pos.distance_squared(self.to_screen_space_big(&self.marker_iterations.position))
                 < MARKER_RADIUS as f64 * MARKER_RADIUS as f64
     }
 
-    fn is_cursor_in_julia(&self) -> bool {
+    fn is_pos_in_julia(&self, pos: DVec2) -> bool {
         let size = self.size.as_dvec2();
-        let cursor = self.cursor;
         let is_split_vertical = size.x > size.y;
         let n = if is_split_vertical {
             DVec2::X
         } else {
             DVec2::Y
         };
-        self.render_julia_set && cursor.dot(n) > size.dot(n) * self.render_split.value
+        self.render_julia_set && pos.dot(n) > size.dot(n) * self.render_split.value
+    }
+
+    fn is_cursor_in_julia(&self) -> bool {
+        self.is_pos_in_julia(self.cursor)
     }
 
     fn camera(&mut self) -> &mut Camera {
-        if self.is_cursor_in_julia() {
+        self.camera_from_pos(self.cursor)
+    }
+
+    fn camera_from_pos(&mut self, pos: DVec2) -> &mut Camera {
+        if self.is_pos_in_julia(pos) {
             &mut self.cameras.julia
         } else {
             &mut self.cameras.mandelbrot
@@ -416,10 +453,14 @@ impl Controller {
     }
 
     fn max_zoom(&self) -> f64 {
-        if self.is_cursor_in_julia() {
-            999999.9
+        self.max_zoom_from_pos(self.cursor)
+    }
+
+    fn max_zoom_from_pos(&self, pos: DVec2) -> f64 {
+        if self.is_pos_in_julia(pos) {
+            MAX_ZOOM_JULIA
         } else {
-            MAX_ZOOM
+            MAX_ZOOM_MANDELBROT
         }
     }
 
@@ -473,6 +514,10 @@ impl ControllerTrait for Controller {
                 }
             }
         }
+    }
+
+    fn touch(&mut self, id: u64, phase: TouchPhase, position: DVec2) {
+        self.touch_impl(id, phase, position);
     }
 
     fn mouse_scroll(&mut self, delta: DVec2) {
