@@ -250,7 +250,7 @@ impl NumIterations {
             NumIterationsMode::Additional => {
                 -self.calculate_additional_iterations(zoom)..=MAX_ADDITIONAL_ITERS as f64
             }
-            NumIterationsMode::Fixed => 0.0..=MAX_ITER_POINTS as f64,
+            NumIterationsMode::Fixed => 0.0..=(MAX_ITER_POINTS - 1) as f64,
         }
     }
 
