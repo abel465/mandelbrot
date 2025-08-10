@@ -8,6 +8,7 @@ use shared::push_constants::shader::*;
 use shared::*;
 use std::collections::HashMap;
 use std::str::FromStr;
+use touch::*;
 use web_time::Instant;
 use winit::event::{ElementState, MouseButton, TouchPhase};
 
@@ -276,26 +277,6 @@ impl NumIterations {
                 self.n = self.n.floor() + 1.0;
             }
         };
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-enum TouchType {
-    Mandelbrot,
-    Julia,
-    RenderSplit,
-    Marker,
-}
-
-#[derive(Clone, Copy)]
-struct Touch {
-    pos: DVec2,
-    touch_type: TouchType,
-}
-
-impl Touch {
-    fn new(pos: DVec2, touch_type: TouchType) -> Self {
-        Self { pos, touch_type }
     }
 }
 

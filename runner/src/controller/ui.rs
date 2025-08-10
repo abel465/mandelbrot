@@ -241,10 +241,10 @@ impl Controller {
                     self.cameras.julia.needs_reiterate = true;
                 }
             });
-        if let Some(r) = r {
-            if r.response.clicked_elsewhere() {
-                self.context_menu = None;
-            }
+        if let Some(r) = r
+            && r.response.clicked_elsewhere()
+        {
+            self.context_menu = None;
         }
     }
 

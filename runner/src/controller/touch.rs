@@ -1,4 +1,33 @@
+use std::time::Duration;
+
 use super::*;
+
+#[derive(Clone, Copy, Debug)]
+pub enum TouchType {
+    Mandelbrot,
+    Julia,
+    RenderSplit,
+    Marker,
+}
+
+#[derive(Clone, Copy)]
+pub struct Touch {
+    pos: DVec2,
+    touch_type: TouchType,
+    has_moved: bool,
+    instant: Instant,
+}
+
+impl Touch {
+    fn new(pos: DVec2, touch_type: TouchType) -> Self {
+        Self {
+            pos,
+            touch_type,
+            instant: Instant::now(),
+            has_moved: false,
+        }
+    }
+}
 
 impl Controller {
     fn handle_move(&mut self, id: u64, touch: Touch, last_position: DVec2, position: DVec2) {
@@ -81,7 +110,11 @@ impl Controller {
                 self.touches.insert(id, Touch::new(position, touch_type));
             }
             TouchPhase::Moved => {
-                let Some(&touch) = self.touches.get(&id) else {
+                self.context_menu = None;
+                let Some(touch) = self.touches.get_mut(&id).map(|touch| {
+                    touch.has_moved = true;
+                    *touch
+                }) else {
                     return;
                 };
                 let is_pinch = self.touches.len() > 1;
@@ -93,7 +126,12 @@ impl Controller {
                 }
             }
             TouchPhase::Ended | TouchPhase::Cancelled => {
-                self.touches.remove(&id);
+                let Some(touch) = self.touches.remove(&id) else {
+                    return;
+                };
+                if touch.instant.elapsed() > Duration::from_millis(700) && !touch.has_moved {
+                    self.context_menu = Some(position);
+                }
             }
         };
     }
