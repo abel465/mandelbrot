@@ -12,6 +12,11 @@ impl Controller {
         ui_state: &mut UiState,
         graphics_context: &easy_shader_runner::GraphicsContext,
     ) {
+        #[cfg(target_arch = "wasm32")]
+        {
+            self.wasm_stuff.ui_rects.clear();
+            self.wasm_stuff.pixels_per_point = ctx.pixels_per_point();
+        }
         self.handle_param_deltas();
         self.iteration_mode = if self.cameras.mandelbrot.zoom > 1000.0 {
             if self.exponent == 2.0 {
@@ -284,7 +289,7 @@ impl Controller {
         #[cfg(not(target_arch = "wasm32"))] ui_state: &mut UiState,
     ) {
         let width = 120.0;
-        egui::Window::new("Mandelbrot")
+        let _rect = egui::Window::new("Mandelbrot")
             .min_width(width)
             .max_width(width)
             .resizable(false)
@@ -465,22 +470,32 @@ impl Controller {
                     #[cfg(not(target_arch = "wasm32"))]
                     ui.checkbox(&mut ui_state.vsync, "VSync");
                 });
-            });
+            })
+            .unwrap()
+            .response
+            .rect;
+        #[cfg(target_arch = "wasm32")]
+        self.wasm_stuff.ui_rects.push(_rect);
     }
 
     fn fps_window(&mut self, ctx: &egui::Context, ui_state: &UiState) {
-        egui::Window::new("fps")
+        let _rect = egui::Window::new("fps")
             .title_bar(false)
             .resizable(false)
             .interactable(false)
             .anchor(egui::Align2::RIGHT_BOTTOM, egui::Vec2::splat(-10.0))
             .show(ctx, |ui| {
                 ui.label(format!("FPS: {}", ui_state.fps()));
-            });
+            })
+            .unwrap()
+            .response
+            .rect;
+        #[cfg(target_arch = "wasm32")]
+        self.wasm_stuff.ui_rects.push(_rect);
     }
 
     fn debug_window(&mut self, ctx: &egui::Context) {
-        egui::Window::new("debug_window")
+        let _rect = egui::Window::new("debug_window")
             .title_bar(false)
             .resizable(false)
             .show(ctx, |ui| {
@@ -604,7 +619,12 @@ impl Controller {
                         ui.end_row();
                     });
                 }
-            });
+            })
+            .unwrap()
+            .response
+            .rect;
+        #[cfg(target_arch = "wasm32")]
+        self.wasm_stuff.ui_rects.push(_rect);
     }
 }
 

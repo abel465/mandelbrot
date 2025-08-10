@@ -280,6 +280,13 @@ impl NumIterations {
     }
 }
 
+#[cfg(target_arch = "wasm32")]
+#[derive(Default)]
+struct WasmStuff {
+    ui_rects: Vec<egui::Rect>,
+    pixels_per_point: f32,
+}
+
 pub struct Controller {
     size: UVec2,
     start: Instant,
@@ -307,6 +314,8 @@ pub struct Controller {
     iteration_mode: IterationMode,
     ctrl_down: bool,
     touches: HashMap<u64, Touch>,
+    #[cfg(target_arch = "wasm32")]
+    wasm_stuff: WasmStuff,
 }
 
 impl Controller {
@@ -358,6 +367,8 @@ impl Controller {
             iteration_mode: IterationMode::default(),
             ctrl_down: false,
             touches: HashMap::new(),
+            #[cfg(target_arch = "wasm32")]
+            wasm_stuff: WasmStuff::default(),
         }
     }
 

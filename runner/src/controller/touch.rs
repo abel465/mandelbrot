@@ -98,6 +98,19 @@ impl Controller {
     pub fn touch_impl(&mut self, id: u64, phase: TouchPhase, position: DVec2) {
         match phase {
             TouchPhase::Started => {
+                #[cfg(target_arch = "wasm32")]
+                {
+                    let position = egui::pos2(position.x as f32, position.y as f32)
+                        / self.wasm_stuff.pixels_per_point;
+                    if self
+                        .wasm_stuff
+                        .ui_rects
+                        .iter()
+                        .any(|rect| rect.contains(position))
+                    {
+                        return;
+                    }
+                }
                 let touch_type = if self.pos_on_render_split(position).is_some() {
                     TouchType::RenderSplit
                 } else if self.pos_on_marker(position) {
