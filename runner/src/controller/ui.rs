@@ -226,11 +226,12 @@ impl Controller {
     }
 
     fn context_menu_window(&mut self, ctx: &egui::Context, pos: DVec2) {
+        let scale = ctx.pixels_per_point();
         let r = egui::Window::new("right_click_menu")
             .frame(egui::Frame::NONE)
             .title_bar(false)
             .resizable(false)
-            .fixed_pos([pos.x as f32, pos.y as f32])
+            .fixed_pos([pos.x as f32 / scale, pos.y as f32 / scale])
             .show(ctx, |ui| {
                 if ui.button("Show iterations here").clicked() {
                     self.marker_iterations.position = self.to_uv_space_big(pos);
