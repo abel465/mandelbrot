@@ -702,4 +702,10 @@ impl ControllerTrait for Controller {
     fn ui(&mut self, ctx: &egui::Context, ui_state: &mut UiState, gfx_ctx: &GraphicsContext) {
         self.ui_impl(ctx, ui_state, gfx_ctx);
     }
+
+    #[cfg(all(feature = "hot-reload-shader", not(target_arch = "wasm32")))]
+    fn new_shader_module(&mut self) {
+        self.cameras.mandelbrot.needs_reiterate = true;
+        self.cameras.julia.needs_reiterate = true;
+    }
 }

@@ -27,7 +27,7 @@ rev = "df1628a032d22c864397417c2871b74d602af986"
 
 [workspace.dependencies.easy-shader-runner]
 git = "https://github.com/abel465/easy-shader-runner"
-rev = "832648b22d533603d79526e3665958d1e04218b0"
+rev = "8f323c451c3a05d592ba6b2eba4f40bf117c2991"
 default-features = false
 
 [profile.dev]
