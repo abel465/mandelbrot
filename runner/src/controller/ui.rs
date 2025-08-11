@@ -269,7 +269,6 @@ impl Controller {
                 RenderPartitioning::Inside,
                 "Inside",
             );
-            ui.end_row();
             ui.radio_value(
                 &mut self.render_partitioning,
                 RenderPartitioning::Both,
@@ -288,75 +287,87 @@ impl Controller {
         ctx: &egui::Context,
         #[cfg(not(target_arch = "wasm32"))] ui_state: &mut UiState,
     ) {
-        let width = 120.0;
-        let _rect = egui::Window::new("Mandelbrot")
-            .min_width(width)
-            .max_width(width)
+        let width = 130.0;
+        let _rect = egui::Window::new("Fractal Explorer")
+            .default_width(width)
             .resizable(false)
             .show(ctx, |ui| {
-                ui.vertical_centered(|ui| {
-                    ui.label(egui::RichText::new("Palette").size(15.0));
-                });
-                egui::Grid::new("col_grid").show(ui, |ui| {
-                    ui.radio_value(&mut self.palette, Palette::Pastel, "Pastel");
-                    ui.radio_value(&mut self.palette, Palette::SolarizedDark, "SolarizedDark");
-                    ui.end_row();
-                    ui.radio_value(&mut self.palette, Palette::Copper, "Copper");
-                    ui.radio_value(&mut self.palette, Palette::RedAndBlack, "RedAndBlack");
-                    ui.end_row();
-                    ui.radio_value(&mut self.palette, Palette::NeonA, "NeonA");
-                    ui.radio_value(&mut self.palette, Palette::Highlighter, "Highlighter");
-                    ui.end_row();
-                    ui.radio_value(&mut self.palette, Palette::NeonB, "NeonB");
-                    ui.radio_value(&mut self.palette, Palette::RGB, "RGB");
-                    ui.end_row();
-                    ui.radio_value(&mut self.palette, Palette::NeonC, "NeonC");
-                    ui.radio_value(&mut self.palette, Palette::Zebra, "Zebra");
-                    ui.end_row();
-                });
-                ui.label("Period");
-                ui.add(egui::Slider::new(&mut self.palette_period, 0.01..=1.0));
+                ui.style_mut().spacing.slider_width = width;
+                egui::ComboBox::from_label(egui::RichText::new("Palette").size(15.0))
+                    .selected_text(format!("{:?}", self.palette))
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(&mut self.palette, Palette::Pastel, "Pastel");
+                        ui.selectable_value(
+                            &mut self.palette,
+                            Palette::SolarizedDark,
+                            "SolarizedDark",
+                        );
+                        ui.selectable_value(&mut self.palette, Palette::Copper, "Copper");
+                        ui.selectable_value(&mut self.palette, Palette::RedAndBlack, "RedAndBlack");
+                        ui.selectable_value(&mut self.palette, Palette::NeonA, "NeonA");
+                        ui.selectable_value(&mut self.palette, Palette::Highlighter, "Highlighter");
+                        ui.selectable_value(&mut self.palette, Palette::NeonB, "NeonB");
+                        ui.selectable_value(&mut self.palette, Palette::RGB, "RGB");
+                        ui.selectable_value(&mut self.palette, Palette::NeonC, "NeonC");
+                        ui.selectable_value(&mut self.palette, Palette::Zebra, "Zebra");
+                    });
                 ui.separator();
-                ui.vertical_centered(|ui| {
-                    ui.label(egui::RichText::new("Render Style").size(15.0));
-                });
-                egui::Grid::new("render_style_grid").show(ui, |ui| {
-                    let render_style = self.render_style;
-                    ui.radio_value(
-                        &mut self.render_style,
-                        RenderStyle::Iterations,
-                        "Iterations",
-                    );
-                    ui.radio_value(
-                        &mut self.render_style,
-                        RenderStyle::FinalDistance,
-                        "Final Distance",
-                    );
-                    ui.end_row();
-                    ui.radio_value(
-                        &mut self.render_style,
-                        RenderStyle::FinalAngle,
-                        "Final Angle",
-                    );
-                    ui.radio_value(
-                        &mut self.render_style,
-                        RenderStyle::DistanceSum,
-                        "Distance Sum",
-                    );
-                    ui.end_row();
-                    ui.radio_value(&mut self.render_style, RenderStyle::NormSum, "Norm Sum");
-                    ui.radio_value(&mut self.render_style, RenderStyle::FinalNorm, "Final Norm");
-                    ui.end_row();
-                    ui.radio_value(&mut self.render_style, RenderStyle::AngleSum, "Angle Sum");
-                    ui.end_row();
-                    if self.render_style != render_style {
-                        self.cameras.mandelbrot.needs_reiterate = true;
-                        self.cameras.julia.needs_reiterate = true;
-                    }
-                });
+
+                let render_style_before = self.render_style;
+                egui::ComboBox::from_label(egui::RichText::new("Style").size(15.0))
+                    .selected_text(format!("{:?}", render_style_before))
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(
+                            &mut self.render_style,
+                            RenderStyle::Iterations,
+                            "Iterations",
+                        );
+                        ui.selectable_value(
+                            &mut self.render_style,
+                            RenderStyle::FinalDistance,
+                            "Final Distance",
+                        );
+                        ui.selectable_value(
+                            &mut self.render_style,
+                            RenderStyle::FinalAngle,
+                            "Final Angle",
+                        );
+                        ui.selectable_value(
+                            &mut self.render_style,
+                            RenderStyle::DistanceSum,
+                            "Distance Sum",
+                        );
+                        ui.selectable_value(
+                            &mut self.render_style,
+                            RenderStyle::NormSum,
+                            "Norm Sum",
+                        );
+                        ui.selectable_value(
+                            &mut self.render_style,
+                            RenderStyle::FinalNorm,
+                            "Final Norm",
+                        );
+                        ui.selectable_value(
+                            &mut self.render_style,
+                            RenderStyle::AngleSum,
+                            "Angle Sum",
+                        );
+                    });
+                if self.render_style != render_style_before {
+                    self.cameras.mandelbrot.needs_reiterate = true;
+                    self.cameras.julia.needs_reiterate = true;
+                }
                 ui.separator();
+
                 self.render_partition_ui(ui);
                 ui.separator();
+
+                ui.vertical_centered(|ui| {
+                    ui.label(egui::RichText::new("Period").size(14.0));
+                });
+                ui.add(egui::Slider::new(&mut self.palette_period, 0.01..=1.0));
+                ui.separator();
+
                 ui.vertical_centered(|ui| {
                     ui.label(egui::RichText::new("Escape Radius").size(14.0));
                 });
@@ -417,17 +428,19 @@ impl Controller {
                     self.cameras.julia.needs_reiterate = true;
                 };
                 ui.separator();
-                if ui.toggle_value(&mut self.smooth.enable, "Smooth").changed()
-                    || ui
-                        .add_enabled(
-                            self.smooth.enable,
-                            egui::Slider::new(&mut self.smooth.value, 0.0..=1.0),
-                        )
-                        .changed()
+                let smooth_toggled = ui.toggle_value(&mut self.smooth.enable, "Smooth").changed();
+                if ui
+                    .add_enabled(
+                        self.smooth.enable,
+                        egui::Slider::new(&mut self.smooth.value, 0.0..=1.0),
+                    )
+                    .changed()
+                    || smooth_toggled
                 {
                     self.cameras.mandelbrot.needs_reiterate = true;
                     self.cameras.julia.needs_reiterate = true;
                 }
+                ui.separator();
                 ui.horizontal(|ui| {
                     ui.toggle_value(&mut self.animate.enable, "Animate");
                     if ui
@@ -465,7 +478,6 @@ impl Controller {
                 ui.separator();
                 ui.horizontal(|ui| {
                     ui.checkbox(&mut self.debug, "Debug");
-                    ui.add_space(12.0);
                     ui.checkbox(&mut self.show_fps, "FPS");
                     #[cfg(not(target_arch = "wasm32"))]
                     ui.checkbox(&mut ui_state.vsync, "VSync");
