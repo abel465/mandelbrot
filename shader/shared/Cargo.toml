@@ -11,7 +11,7 @@ spirv-std = { workspace = true }
 
 [target.'cfg(target_arch = "spirv")'.dependencies]
 glam = { workspace = true }
-abels-complex = { version = "0.1.0", default-features = false, features = [
+abels-complex = { version = "0.2.0", default-features = false, features = [
   "libm",
   "glam",
 ] }
@@ -19,7 +19,7 @@ abels-complex = { version = "0.1.0", default-features = false, features = [
 [target.'cfg(not(target_arch = "spirv"))'.dependencies]
 glam = { workspace = true, features = ["bytemuck"] }
 bytemuck = { workspace = true, features = ["derive"] }
-abels-complex = { version = "0.1.0", default-features = false, features = [
+abels-complex = { version = "0.2.0", default-features = false, features = [
   "std",
   "glam",
 ] }
